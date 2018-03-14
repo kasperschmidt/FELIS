@@ -95,7 +95,28 @@ def build_mock_spectrum(linelist,lineratios,wavelength,continuum,noise='Gauss',v
     import felis
 
     """
+# = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =
+def load_spectrum(specfile,verbose=True):
+    """
+    Loading spectrum generated with felis.save_spectrum() or TDOSE.
 
+    --- INPUT ---
+
+    --- EXAMPLE OF USE ---
+    import felis
+    specfile  = './spectrum_output.fits'
+    w, f, df, s2n = felis.load_spectrum(specfile)
+
+    """
+    if verbose: print(' - Loading SPEC1D extension (spectrum) of \n   '+specfile)
+    dat = fits.open(specfile)['SPEC1D'].data
+
+    wave    = dat['wave']
+    flux    = dat['flux']
+    fluxerr = dat['fluxerror']
+    s2n     = dat['s2n']
+
+    return wave, flux, fluxerr, s2n
 # = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =
 def save_spectrum(outfile,wave,flux,fluxerr,headerinfo=None,overwrite=False,verbose=True):
     """
