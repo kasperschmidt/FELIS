@@ -4,12 +4,13 @@ import felis_build_template as fbt
 import matplotlib.pyplot as plt
 from astropy.io import fits
 import pdb
+import sys
 import scipy
 import numpy as np
 import collections
 
 # = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =
-def build_template(wavelenghts,templatecomponents,addnoise=None,
+def build_template(wavelenghts,templatecomponents,noise=None,
                    tempfile='./felis_template_RENAME_.fits',
                    plottemplate=True,overwrite=False,verbose=True):
     """
@@ -44,8 +45,9 @@ def build_template(wavelenghts,templatecomponents,addnoise=None,
 
                                 In the above, 'info', is a string with info to write to template fits header
                                 when listing the template components
-    addnoise                    To add noise to the template provide one of the following:
-                                    'POISSON'     Adding pure Poissonian noise to flux counts
+    noise                       To add noise to the template provide one of the following:
+                                    ['POISSON',mean]       Drawing noise from Poisson distribution around mean
+                                    ['GAUSS',mean,sigma]   Drawing noise from Gaussian distribution with mean and sigma
     tempfile                    Name of fits file to store final template to
     overwrite                   Overwrite existing template?
 
@@ -64,6 +66,15 @@ def build_template(wavelenghts,templatecomponents,addnoise=None,
     tcdic['B1920']                  = ['FEATURE',break_wave, break_flux,'Break at 1920 Angstrom']
 
     fbt.build_template([1870,1980,0.1],tcdic,tempfile='./felis_template_example.fits',overwrite=True)
+
+    tcdic = {}
+    tcdic['CONT']                   = ['CONT',  1.0, 0.0, 0.0,          'Flat continuum at 1.0']
+    tcdic['CIII1']                  = ['GAUSS', 1907.0, 0.5, 0.0, 10.0, 'CIII]1907A']
+    tcdic['CIII2']                  = ['GAUSS', 1909.0, 0.5, 0.0, 5.0,  'CIII]1909A']
+    noise                           = ['GAUSS', 1.0, 0.1]
+
+    fbt.build_template([1900,1920,0.1],tcdic,tempfile='./felis_template_CIIIdoublet.fits',noise=noise,overwrite=True)
+
 
     """
     if verbose: print(' - Setting up template output ')
@@ -98,20 +109,21 @@ def build_template(wavelenghts,templatecomponents,addnoise=None,
             flux_feat = func(wavevec)
             fluxvec    = fluxvec + flux_feat
             headerdic['F'+key+'_1'] = [templatecomponents[key][0],templatecomponents[key][-1]]
+        else:
+            sys.exit('Invalid template component "'+templatecomponents[key][0]+'"')
 
-
-    if addnoise is 'POISSON':
-        if verbose: print(' - Adding Poisson noise')
-        mean  = 50.0
-        noise = np.random.poisson(mean,fluxvec.shape).astype(float)
-        headerdic['FNOISE_1'] = [mean,'Mean of Poissoniannoise']
-    elif addnoise is 'GAUSS':
-        if verbose: print(' - Adding Gaussian noise')
-        mean  = 0.0
-        sigma = 1.0
-        noise = np.random.normal(mean, sigma, fluxvec.shape)
-        headerdic['FNOISE_1'] = [mean,'Mean of Gaussian noise']
-        headerdic['FNOISE_2'] = [mean,'Sigma of Gaussian noise']
+    if noise is not None:
+        if noise[0] is 'POISSON':
+            if verbose: print(' - Adding Poisson noise')
+            noise = np.random.poisson(noise[1],fluxvec.shape).astype(float)
+            headerdic['FNOISE_1'] = [noise[1],'Mean of Poissonian noise']
+        elif noise[0] is 'GAUSS':
+            if verbose: print(' - Adding Gaussian noise')
+            headerdic['FNOISE_1'] = [noise[1],'Mean of Gaussian noise']
+            headerdic['FNOISE_2'] = [noise[2],'Sigma of Gaussian noise']
+            noise = np.random.normal(noise[1], noise[2], fluxvec.shape)
+        else:
+            sys.exit('Invalid template component "'+noise[0]+'"')
     else:
         noise = fluxvec*0.0
         headerdic['FNOISE_1'] = ['None','No noise added']
@@ -167,6 +179,7 @@ def plot_template(templatefits,showerr=True,verbose=True):
 
     """
     specdata = fits.open(templatefits)[1].data
+    datahdr  = fits.open(templatefits)[1].header
     plotname = templatefits.replace('.fits','_plot.pdf')
     if verbose: print(' - Setting up and generating plot')
     fig = plt.figure(figsize=(7, 5))
@@ -181,6 +194,11 @@ def plot_template(templatefits,showerr=True,verbose=True):
     plt.clf()
     plt.ioff()
 
+    try:
+        plt.xlabel(' Wavelength ['+datahdr['TUNIT1']+']')
+    except:
+        plt.xlabel(' Wavelength [?]')
+
     xvalues  = specdata['wave']
     yvalues  = specdata['flux']
     yvalues2 = specdata['s2n']
@@ -192,12 +210,23 @@ def plot_template(templatefits,showerr=True,verbose=True):
         plt.fill_between(xvalues, yvalues-specdata['fluxerror'], yvalues+specdata['fluxerror'],
                          color='green',alpha=0.5)
 
-    plt.xlabel(' Wavelength [A]')
-    plt.ylabel(' flux [?] ')
+    try:
+        plt.xlabel(' Wavelength ['+datahdr['TUNIT1']+']')
+    except:
+        plt.xlabel(' Wavelength [?]')
+
+    try:
+        plt.ylabel(' Flux ['+datahdr['TUNIT2']+']')
+    except:
+        plt.ylabel(' Flux [?]')
+
     # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
     plt.subplot(2,1,2)
     plt.plot(xvalues,yvalues2,'go',lw=lthick, markersize=marksize,alpha=1.0,)
-    plt.xlabel(' Wavelength [A]')
+    try:
+        plt.xlabel(' Wavelength ['+datahdr['TUNIT1']+']')
+    except:
+        plt.xlabel(' Wavelength [?]')
     plt.ylabel(' S/N ')
     # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
     if verbose: print('   Saving plot to',plotname)
