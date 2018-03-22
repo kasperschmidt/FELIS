@@ -12,7 +12,7 @@ import collections
 # = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =
 def build_template(wavelenghts,templatecomponents,noise=None,
                    tempfile='./felis_template_RENAME_.fits',
-                   plottemplate=True,overwrite=False,verbose=True):
+                   plottemplate=True,zoomxplot=None,overwrite=False,verbose=True):
     """
     Build a spectral template based on a dictionatry specifying the tempalte components
     like emmision line and continuum shape.
@@ -49,6 +49,8 @@ def build_template(wavelenghts,templatecomponents,noise=None,
                                     ['POISSON',mean]       Drawing noise from Poisson distribution around mean
                                     ['GAUSS',mean,sigma]   Drawing noise from Gaussian distribution with mean and sigma
     tempfile                    Name of fits file to store final template to
+    plottemplate                Plot the generated template?
+    zoomxplot                   Only show plot in zoom region given as [lambda_min,lambda_max]
     overwrite                   Overwrite existing template?
 
     --- EXAMPLE OF USE ---
@@ -69,9 +71,9 @@ def build_template(wavelenghts,templatecomponents,noise=None,
 
     tcdic = {}
     tcdic['CONT']                   = ['CONT',  1.0, 0.0, 0.0,          'Flat continuum at 1.0']
-    tcdic['CIII1']                  = ['GAUSS', 1907.0, 0.5, 0.0, 10.0, 'CIII]1907A']
+    tcdic['CIII1']                  = ['GAUSS', 1907.0, 0.5, 0.0, 10.0, '[CIII]1907A']
     tcdic['CIII2']                  = ['GAUSS', 1909.0, 0.5, 0.0, 5.0,  'CIII]1909A']
-    noise                           = ['GAUSS', 1.0, 0.1]
+    noise                           = ['GAUSS', 2.0, 1.0]
 
     fbt.build_template([1900,1920,0.1],tcdic,tempfile='./felis_template_CIIIdoublet.fits',noise=noise,overwrite=True)
 
@@ -138,7 +140,7 @@ def build_template(wavelenghts,templatecomponents,noise=None,
     felis.save_spectrum(tempfile,wavevec,fluxvec,fluxerr,headerinfo=headerdic,overwrite=overwrite,verbose=verbose)
 
     if plottemplate:
-        fbt.plot_template(tempfile,showerr=True,verbose=verbose)
+        fbt.plot_template(tempfile,showerr=True,zoomx=zoomxplot,verbose=verbose)
 
 # = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =
 def gauss_skew(x, *p):
@@ -164,7 +166,7 @@ def gauss_skew(x, *p):
     return gaussskew_pdf
 
 # = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =
-def plot_template(templatefits,showerr=True,verbose=True):
+def plot_template(templatefits,zoomx=None,showerr=True,verbose=True):
     """
     Plotting template
 
@@ -202,12 +204,22 @@ def plot_template(templatefits,showerr=True,verbose=True):
     xvalues  = specdata['wave']
     yvalues  = specdata['flux']
     yvalues2 = specdata['s2n']
+    yerr     = specdata['fluxerror']
+
+    if zoomx is not None:
+        goodent  = np.where( (xvalues > zoomx[0]) & (xvalues < zoomx[1]) )
+        if len(goodent) == 0:
+            sys.exit('No data in zoomx region to plot')
+        xvalues  = xvalues[goodent]
+        yvalues  = yvalues[goodent]
+        yvalues2 = yvalues2[goodent]
+        yerr     = yerr[goodent]
 
     # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
     plt.subplot(2,1,1)
     plt.plot(xvalues,yvalues,'go',lw=lthick, markersize=marksize,alpha=1.0,)
     if showerr:
-        plt.fill_between(xvalues, yvalues-specdata['fluxerror'], yvalues+specdata['fluxerror'],
+        plt.fill_between(xvalues, yvalues-yerr, yvalues+yerr,
                          color='green',alpha=0.5)
 
     try:
@@ -229,7 +241,7 @@ def plot_template(templatefits,showerr=True,verbose=True):
         plt.xlabel(' Wavelength [?]')
     plt.ylabel(' S/N ')
     # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-    if verbose: print('   Saving plot to',plotname)
+    if verbose: print('   Saving plot to'+plotname)
     plt.savefig(plotname)
     plt.clf()
     plt.close('all')
