@@ -136,7 +136,6 @@ def build_template(wavelenghts,templatecomponents,noise=None,
     fluxerr = np.sqrt(fluxvec)
     headerdic['FERR_1'] = ['sqrt(f)','Uncertainty on flux set to sqrt(flux)']
 
-    if verbose: print(' - Storing template to fitsfile \n   '+tempfile)
     felis.save_spectrum(tempfile,wavevec,fluxvec,fluxerr,headerinfo=headerdic,overwrite=overwrite,verbose=verbose)
 
     if plottemplate:
