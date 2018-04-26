@@ -131,10 +131,9 @@ def build_template(wavelenghts,templatecomponents,noise=None,
         headerdic['FNOISE_1'] = ['None','No noise added']
     fluxvec = fluxvec + noise
 
-
     if verbose: print(' - Setting flux error as sqrt(flux)')
-    fluxerr = np.sqrt(fluxvec)
-    headerdic['FERR_1'] = ['sqrt(f)','Uncertainty on flux set to sqrt(flux)']
+    fluxerr = np.sqrt(np.abs(fluxvec))
+    headerdic['FERR_1'] = ['sqrt(f)','Uncertainty on flux set to sqrt(|flux|)']
 
     felis.save_spectrum(tempfile,wavevec,fluxvec,fluxerr,headerinfo=headerdic,overwrite=overwrite,verbose=verbose)
 
