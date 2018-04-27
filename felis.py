@@ -159,8 +159,10 @@ def cross_correlate_template(spectrum,template,z_restframe=None,waverange=None,p
     t_flux[t_flux < min_template_level] = 0.0
 
     if verbose: print(' - Normalizing total template flux to 1')
-    t_flux     = t_flux / np.sum(t_flux)
-
+    if len(t_flux[t_flux != 0]) == 0:
+        if verbose: print(' WARNING All interpolated template pixels are 0.0')
+    else:
+        t_flux     = t_flux / np.sum(t_flux)
 
     Npix = len(s_flux)
 
