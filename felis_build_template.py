@@ -117,23 +117,26 @@ def build_template(wavelenghts,templatecomponents,noise=None,
     if noise is not None:
         if noise[0] is 'POISSON':
             if verbose: print(' - Adding Poisson noise')
-            noise = np.random.poisson(noise[1],fluxvec.shape).astype(float)
+            noisevec = np.random.poisson(noise[1],fluxvec.shape).astype(float)
             headerdic['FNOISE_1'] = [noise[1],'Mean of Poissonian noise']
         elif noise[0] is 'GAUSS':
             if verbose: print(' - Adding Gaussian noise')
             headerdic['FNOISE_1'] = [noise[1],'Mean of Gaussian noise']
             headerdic['FNOISE_2'] = [noise[2],'Sigma of Gaussian noise']
-            noise = np.random.normal(noise[1], noise[2], fluxvec.shape)
+            noisevec = np.random.normal(noise[1], noise[2], fluxvec.shape)
         else:
             sys.exit('Invalid template component "'+noise[0]+'"')
     else:
-        noise = fluxvec*0.0
+        noisevec = fluxvec*0.0
         headerdic['FNOISE_1'] = ['None','No noise added']
-    fluxvec = fluxvec + noise
+    fluxvec = fluxvec + noisevec
 
-    if verbose: print(' - Setting flux error as sqrt(flux)')
-    fluxerr = np.sqrt(np.abs(fluxvec))
-    headerdic['FERR_1'] = ['sqrt(f)','Uncertainty on flux set to sqrt(|flux|)']
+    # if verbose: print(' - Setting flux error as sqrt(flux)')
+    # fluxerr = np.sqrt(np.abs(fluxvec))
+    # headerdic['FERR_1'] = ['sqrt(f)','Uncertainty on flux set to sqrt(|flux|)']
+
+    fluxerr = np.abs(noisevec)
+    headerdic['FERR_1'] = ['noise','Uncertainty on flux = noise from FNOISE keys']
 
     felis.save_spectrum(tempfile,wavevec,fluxvec,fluxerr,headerinfo=headerdic,overwrite=overwrite,verbose=verbose)
 
