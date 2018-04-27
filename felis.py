@@ -57,7 +57,7 @@ def get_template_library(linelist,continuum):
     return templib
 
 # = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =
-def min_chi2(data,data_sigma,template,verbose=True):
+def minimize_chi2(data,data_sigma,template,verbose=True):
     """
     Minimizing chi2 for a 1D tempalte matching and returning the corresponding scaling, alpha.
 
@@ -98,9 +98,9 @@ def min_chi2(data,data_sigma,template,verbose=True):
         alpha          = np.sum( data[goodent] * template[goodent] / data_sigma[goodent]**2 ) / \
                          np.sum( template[goodent]**2 / data_sigma[goodent]**2 )
 
-        alpha_variance = 1.0 / np.sum( (alpha*template[goodent])**2 / data_sigma[goodent]**2 )
+        alpha_variance = 1.0 / np.sum( template[goodent]**2 / data_sigma[goodent]**2 )
         S2N            = alpha / np.sqrt(alpha_variance)
-        chi2_min       = np.sum( data[goodent] - alpha * template[goodent]**2 / data_sigma[goodent]**2 )
+        chi2_min       = np.sum( (data[goodent] - alpha * template[goodent])**2 / data_sigma[goodent]**2 )
 
     return alpha, alpha_variance, S2N, chi2_min, Ngoodent
 # = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =
@@ -175,11 +175,11 @@ def cross_correlate_template(spectrum,template,z_restframe=None,waverange=None,p
 
         try:
             flux_scale, flux_scale_variance, S2N, chi2_min, NgoodentChi2 = \
-                felis.min_chi2(s_flux,s_df,template_shift,verbose=False)
+                felis.minimize_chi2(s_flux,s_df,template_shift,verbose=False)
 
             ccresults[ii,:] = flux_scale, flux_scale_variance, S2N, chi2_min, NgoodentChi2
         except:
-            print(' ERROR: Problems in minimizing Chi**2 with felis.min_chi2() while cross-correlating. '
+            print(' ERROR: Problems in minimizing Chi**2 with felis.minimize_chi2() while cross-correlating. '
                   'Stopping for further investigation')
 
             pdb.set_trace()
@@ -287,7 +287,7 @@ def cross_correlate_wscipy(spectrum,template,z_restframe=None,ccS2N=False,wavera
     For the rest-frame case the template is interpolated to ensure such an agreement.
 
     NB! This cross-correlation function is superseded by 'match_template' which does a manual template matching
-        and cross-correlation using min_chi2() and cross_correlate_template()
+        and cross-correlation using minimize_chi2() and cross_correlate_template()
 
     --- INPUT ---
     spectrum       fits spectrum to find a (cross-correlation) match to template for
