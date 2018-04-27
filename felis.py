@@ -84,8 +84,8 @@ def minimize_chi2(data,data_sigma,template,verbose=True):
     else:
         sys.exit('The length of the data and template should be the same; it is not.')
     if verbose: print(' - Will calculate and minimize chi**2 for data and template of length '+str(Npix))
-    #goodent  = np.where((data_sigma > 0) & (np.isfinite(data)) & (template != 0))[0]
-    goodent  = np.where((data_sigma > 0) & (data > 0) & (template != 0))[0]
+    goodent  = np.where((data_sigma > 0) & (np.isfinite(data)) & (template != 0))[0]
+    #goodent  = np.where((data_sigma > 0) & (data > 0) & (template != 0))[0]
     Ngoodent = len(goodent)
 
     if Ngoodent == 0:
@@ -219,9 +219,9 @@ def cross_correlate_template(spectrum,template,z_restframe=None,waverange=None,p
     if plotresult is not None:
         plotname = plotresult
         if verbose: print(' - Setting up and generating plot')
-        fig = plt.figure(figsize=(7, 6))
-        fig.subplots_adjust(wspace=0.1, hspace=0.5,left=0.1, right=0.97, bottom=0.11, top=0.92)
-        Fsize    = 12
+        fig = plt.figure(figsize=(6, 5))
+        fig.subplots_adjust(wspace=0.1, hspace=0.5,left=0.1, right=0.99, bottom=0.11, top=0.92)
+        Fsize    = 9
         lthick   = 2
         marksize = 4
         plt.rc('text', usetex=True)
@@ -234,17 +234,18 @@ def cross_correlate_template(spectrum,template,z_restframe=None,waverange=None,p
         # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
         plt.subplot(3,1,1)
         plt.plot(s_wave,template_shift_S2Nmax,'g.',lw=lthick+1, markersize=marksize,alpha=1.0,
-                 label='Template at z(max S/N) = '+str(max_z))
+                 label='Temp. at z(S/N$_\\textrm{max}$) = '+str(max_z))
         plt.plot(s_wave,flux_scale_S2Nmax * template_shift_S2Nmax,'g-',lw=lthick+2, markersize=marksize,alpha=1.0,
-                 label='Template flux$_\\textrm{tot}$ scale $\\alpha$ = '+str("%.4f" % flux_scale_S2Nmax)+'')
+                 label='Temp. flux$_\\textrm{tot}$ scale $\\alpha$ = '+str("%.4f" % flux_scale_S2Nmax)+'')
 
-        plt.plot(s_wave,s_flux,'k-',lw=lthick, markersize=marksize,alpha=1.0,label='Spectrum')
-        plt.fill_between(s_wave, s_flux-s_df, s_flux+s_df,color='black',alpha=0.2,label='Spectrum uncertainty')
+        plt.plot(s_wave,s_flux,'k-',lw=lthick, markersize=marksize,alpha=1.0,label='Spec.')
+        plt.fill_between(s_wave, s_flux-s_df, s_flux+s_df,color='black',alpha=0.2,label='Spec. err')
 
         plt.plot([max_wave,max_wave],[np.min(s_flux-s_df),np.max(s_flux+s_df)],'--r',lw=lthick,
                  markersize=marksize,alpha=1.0,label='S/N$_\\textrm{max}$ = '+str("%.4f" % max_S2N)+'')
         plt.xlabel(' Wavelength [A]')
         plt.ylabel(' Flux ')
+        #plt.ylim([-2,6])
         leg = plt.legend(fancybox=True, loc='upper center',prop={'size':Fsize/1.3},ncol=3,numpoints=1,
                          bbox_to_anchor=(0.5, 1.43))  # add the legend
         leg.get_frame().set_alpha(0.7)
@@ -253,7 +254,7 @@ def cross_correlate_template(spectrum,template,z_restframe=None,waverange=None,p
         plt.subplot(3,1,2)
         plt.plot(s_wave,ccresults[:,2],'-r',lw=lthick, markersize=marksize,alpha=1.0)
         plt.plot([max_wave,max_wave],[np.min(ccresults[:,2]),np.max(ccresults[:,2])],'--r',lw=lthick,
-                 markersize=marksize,alpha=1.0,label='Max(S/N Value)')
+                 markersize=marksize,alpha=1.0)
         plt.xlabel(' Wavelength [A]')
         plt.ylabel(' Cross-Correlation S/N')
         # leg = plt.legend(fancybox=True, loc='upper right',prop={'size':Fsize},ncol=1,numpoints=1)
@@ -261,12 +262,12 @@ def cross_correlate_template(spectrum,template,z_restframe=None,waverange=None,p
 
         # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
         plt.subplot(3,1,3)
-        plt.plot(s_wave,ccresults[:,3]/ccresults[:,4],'-r',lw=lthick, markersize=marksize,alpha=1.0)
-        plt.plot([max_wave,max_wave],[np.min(ccresults[:,3]/ccresults[:,4]),np.max(ccresults[:,3]/ccresults[:,4])],'--r',lw=lthick,
-                 markersize=marksize,alpha=1.0,label='Max(S/N Value)')
+        plt.plot(s_wave,ccresults[:,3],'-r',lw=lthick, markersize=marksize,alpha=1.0)
+        plt.plot([max_wave,max_wave],[np.min(ccresults[:,3]),np.max(ccresults[:,3])],'--r',lw=lthick,
+                 markersize=marksize,alpha=1.0)
         plt.xlabel(' Wavelength [A]')
-        plt.ylabel(' $\chi^2_\\textrm{min}$ / Npix')
-        plt.ylim([0,1])
+        plt.ylabel(' $\chi^2_\\textrm{min}$')
+        # plt.ylim([0,1])
         # leg = plt.legend(fancybox=True, loc='upper right',prop={'size':Fsize},ncol=1,numpoints=1)
         # leg.get_frame().set_alpha(0.7)
 
