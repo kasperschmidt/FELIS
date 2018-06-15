@@ -531,3 +531,12 @@ def save_spectrum(outfile,wave,flux,fluxerr,headerinfo=None,overwrite=False,verb
 
     hdulist.writeto(outfile, overwrite=overwrite)
 # = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =
+def save_dictionary(dictionary, output='./saveddictionary_RENAME_.pkl'):
+    with open(output, 'wb') as f:
+        pickle.dump(dictionary, f, pickle.HIGHEST_PROTOCOL)
+# = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =
+def load_picklefile(picklefile):
+    with open(picklefile, 'rb') as f:
+        return pickle.load(f)
+
+# = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =
