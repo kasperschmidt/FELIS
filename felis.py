@@ -169,7 +169,7 @@ def match_templates2specs(templates,spectra,speczs,picklename,wavewindow=[50.0],
                 temp_namebase = temp.split('/')[-1].split('.fit')[0]
                 plotname      = plotdir+spec_namebase+'_CCwith_'+temp_namebase+'.pdf'
 
-                felis.plot_picklefilecontent([spec],picklename,plottemplates=[tt],
+                felis.plot_picklefilecontent([spec],picklename,plottemplates=[tt],showspecerr=False,
                                              plotnames=[plotname],plotdir=plotdir,verbose=True)
 
     if verbose: print(' - Returning dictioniary with results ')
@@ -230,7 +230,7 @@ def plot_picklefilecontent(specs2plot,picklefile,plotnames=None,plotdir=None,z_r
                         provide the entry in the dictionary of this template. To see the templates, look at
                         the 'templatevec' entry:
                             picload = felis.load_picklefile(picklefile)
-                            picload[picload.keys()[specname]]['templatevec']
+                            picload[specname]['templatevec']
     showspecerr         Show the error on the data spectrum? Can make the automatically set y-axis range less ideal.
     verbose             Toggle the verbosity.
 
@@ -309,7 +309,7 @@ def plot_picklefilecontent(specs2plot,picklefile,plotnames=None,plotdir=None,z_r
 
         if verbose: print(' - Setting up and generating plot:\n   '+plotname)
         fig = plt.figure(figsize=(6, 7))
-        fig.subplots_adjust(wspace=0.1, hspace=0.5,left=0.1, right=0.99, bottom=0.11, top=0.92)
+        fig.subplots_adjust(wspace=0.1, hspace=0.5,left=0.1, right=0.99, bottom=0.07, top=0.91)
         Fsize    = 9
         lthick   = 2
         marksize = 4
@@ -321,7 +321,7 @@ def plot_picklefilecontent(specs2plot,picklefile,plotnames=None,plotdir=None,z_r
         plt.ioff()
 
         # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-        plt.subplot(4,1,1)
+        ax = plt.subplot(4,1,1)
 
         plt.plot(spec_wave,template_shift_S2Nmax_normalized,'g.',lw=lthick+1, markersize=marksize,alpha=1.0,
                  label='Temp. at z(S/N$_\\textrm{max}$) = '+str(max_z))
@@ -348,6 +348,9 @@ def plot_picklefilecontent(specs2plot,picklefile,plotnames=None,plotdir=None,z_r
         leg = plt.legend(fancybox=True, loc='upper center',prop={'size':Fsize/1.3},ncol=3,numpoints=1,
                          bbox_to_anchor=(0.45, 1.43))  # add the legend
         leg.get_frame().set_alpha(0.7)
+        # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+        plt.text(0.45, 1.45, 'Template: '+template.split('/')[-1].replace('_','\_'),
+                 fontsize=Fsize/1.3, horizontalalignment='center', transform=ax.transAxes)
 
         # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
         plt.subplot(4,1,2)
@@ -368,9 +371,6 @@ def plot_picklefilecontent(specs2plot,picklefile,plotnames=None,plotdir=None,z_r
         plt.xlabel(' Wavelength [A]')
         plt.ylabel(' Cross-Correlation S/N')
 
-        # leg = plt.legend(fancybox=True, loc='upper right',prop={'size':Fsize},ncol=1,numpoints=1)
-        # leg.get_frame().set_alpha(0.7)
-
         # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
         plt.subplot(4,1,4)
         plt.plot(spec_dic['wavelengths'],spec_dic['ccresultsarr_chi2'][besttemplate_ent,:],'-r',lw=lthick, markersize=marksize,alpha=1.0)
@@ -378,9 +378,6 @@ def plot_picklefilecontent(specs2plot,picklefile,plotnames=None,plotdir=None,z_r
                  markersize=marksize,alpha=1.0)
         plt.xlabel(' Wavelength [A]')
         plt.ylabel(' $\chi^2_\\textrm{min}$')
-
-        # leg = plt.legend(fancybox=True, loc='upper right',prop={'size':Fsize},ncol=1,numpoints=1)
-        # leg.get_frame().set_alpha(0.7)
 
         # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
         if verbose: print('   Saving plot to '+plotname)
