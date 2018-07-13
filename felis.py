@@ -25,8 +25,20 @@ def match_templates2specs(templates,spectra,speczs,picklename,wavewindow=[50.0],
     Wrapper around felis cross-correlation template matching, to match a list of spectra with a list of templtes.
 
     --- INPUT ---
-
-
+    spectra             fits spectra to find a (cross-correlation) match to template for
+    templates           fits templates to correlate with
+    speczs              Spectroscopic redshifts to perform cross-correlation in rest-frame (shifting the spectrum).
+    picklename          Name of pickle file to store final cross-correlation results in
+    wavewindow          Window (wavecen_restframe * (1+speczs) +/- wavewindow) to perform template matching over.
+    wavecen_restframe   Central rest-frame  wavelength of the region to match
+    vshift              If a velcotiy shift is known, provide it here and it will be stored in output (not used)
+    min_template_level  The template is interpolated to the wavelength grid of the spectrum and extrapolated
+                        beyond it's edges if nescessary. In this extrapolation (assuming the template goes to ~0
+                        at the edges), very small values (e.g., <1e-20) can be returned. To set these to 0.0
+                        provide a level below which all values in the interpolated template are treated as 0s.
+    plotdir             Directory to store plots to
+    plot_allCCresults   To plot all the cross-correlation plots, set this to True
+    verbose             Toggle verbosity
 
     --- EXAMPLE OF USE ---
     import felis
@@ -102,10 +114,6 @@ def match_templates2specs(templates,spectra,speczs,picklename,wavewindow=[50.0],
         spec_namebase = spec.split('/')[-1].split('.fit')[0]
         for tt, temp in enumerate(templates):
             temp_namebase = temp.split('/')[-1].split('.fit')[0]
-            if plotdir is not None:
-                plotname = plotdir+spec_namebase+'_CCwith_'+temp_namebase+'.pdf'
-            else:
-                plotname = plotdir
 
             wavecenter  = wavecen_restframe[ss]  * (1.0 + speczs[ss])
             waverange   = [wavecenter-wavewindow[ss],wavecenter+wavewindow[ss]]
@@ -159,13 +167,10 @@ def match_templates2specs(templates,spectra,speczs,picklename,wavewindow=[50.0],
             spec_namebase = spec.split('/')[-1].split('.fit')[0]
             for tt, temp in enumerate(templates):
                 temp_namebase = temp.split('/')[-1].split('.fit')[0]
-                if plotdir is not None:
-                    plotname = plotdir+spec_namebase+'_CCwith_'+temp_namebase+'.pdf'
-                else:
-                    plotname = plotdir
+                plotname      = plotdir+spec_namebase+'_CCwith_'+temp_namebase+'.pdf'
 
                 felis.plot_picklefilecontent([spec],picklename,plottemplates=[tt],
-                                             plotname=plotname,plotdir=plotdir,verbose=True)
+                                             plotnames=[plotname],plotdir=plotdir,verbose=True)
 
     if verbose: print(' - Returning dictioniary with results ')
     loaddic = felis.load_picklefile(picklename)
@@ -207,8 +212,8 @@ def selection_from_picklefile(picklefile,S2Nmaxrange=[3,1e4],zLyarange=[0,10],ve
     if verbose: print(' - Returning those')
     return goodkeys
 # = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =
-def plot_picklefilecontent(specs2plot,picklefile,plotname=None,plotdir=None,z_restframe=None,
-                           plottemplates=None,verbose=True):
+def plot_picklefilecontent(specs2plot,picklefile,plotnames=None,plotdir=None,z_restframe=None,
+                           plottemplates=None,showspecerr=True,verbose=True):
     """
     Function to plot individual results from a picklefile generated with felis.match_templates2specs()
 
@@ -216,7 +221,7 @@ def plot_picklefilecontent(specs2plot,picklefile,plotname=None,plotdir=None,z_re
     specs2plot          The spectra from the pickle file (the pickle dictinary keys) to plot. These can be
                         provide in a list by hand or be selected with felis.selection_from_picklefile()
     picklefile          The path and name to pickelfile to plot content of
-    plotname            The names of the plot(s) to generate. If 'None' the string '_templatematch.pdf' will
+    plotnames           The names of the plot(s) to generate. If 'None' the string '_templatematch.pdf' will
                         be appended that pickle dictionary key (spectrum name).
     plotdir             To chose a different directory for saving the plots (other than the directory
                         in which the spectrum provided is stored) provide this here.
@@ -226,6 +231,7 @@ def plot_picklefilecontent(specs2plot,picklefile,plotname=None,plotdir=None,z_re
                         the 'templatevec' entry:
                             picload = felis.load_picklefile(picklefile)
                             picload[picload.keys()[specname]]['templatevec']
+    showspecerr         Show the error on the data spectrum? Can make the automatically set y-axis range less ideal.
     verbose             Toggle the verbosity.
 
     --- EXAMPLE OF USE ---
@@ -239,7 +245,7 @@ def plot_picklefilecontent(specs2plot,picklefile,plotname=None,plotdir=None,z_re
     plotdir    = '/Users/kschmidt/work/MUSE/uvEmissionlineSearch/MUSEwideLAE_FELISplots/'
     specs2plot = ['/Volumes/DATABCKUP1/TDOSEextractions/171201_TDOSEextraction/Modelimg/tdose_spectra/tdose_spectrum_candels-cdfs-15_modelimg_0115003085-0115003085.fits']
 
-    felis.plot_picklefilecontent(specs2plot,picklefile,plotnameextensions=None,plotdir=plotdir,verbose=True)
+    felis.plot_picklefilecontent(specs2plot,picklefile,plotname=None,plotdir=plotdir,verbose=True)
 
 
     """
@@ -247,10 +253,10 @@ def plot_picklefilecontent(specs2plot,picklefile,plotname=None,plotdir=None,z_re
     loaddic  = felis.load_picklefile(picklefile)
 
     for ss, spec in enumerate(specs2plot):
-        if plotname is None:
+        if plotnames is None:
             plotname = spec.replace('.fits','_templatematch.pdf')
         else:
-            plotname = plotname
+            plotname = plotnames[ss]
 
         if plotdir is not None:
             specdir  = '/'.join(plotname.split('/')[:-1])
@@ -269,16 +275,16 @@ def plot_picklefilecontent(specs2plot,picklefile,plotname=None,plotdir=None,z_re
 
         # moving spectrum to restframe
         if z_restframe is None:
-            z_restframe=spec_dic['zLya']
+            z_spec=spec_dic['zLya']
 
-        spec_wave, spec_flux, spec_df, spec_s2n = \
-            spec_wave / (1+z_restframe), spec_flux / (1+z_restframe), spec_df, spec_s2n
+            spec_wave, spec_flux, spec_df, spec_s2n = \
+                spec_wave / (1+z_spec), spec_flux / (1+z_spec), spec_df, spec_s2n
 
         # subtract continuum level from spectrum
         spec_flux = spec_flux - spec_dic['continuumlevel']
 
         # Limit spectrum to range of wavelengths cross-correlated with tempalte
-        goodent = np.where( (spec_wave >= spec_dic['wavelengths'][0]) & (spec_wave <= spec_dic['wavelengths'][-1]) )
+        goodent = np.where( (spec_wave >= spec_dic['wavelengths'][0]) & (spec_wave <= spec_dic['wavelengths'][-1]) )[0]
         spec_wave, spec_flux, spec_df, spec_s2n = \
             spec_wave[goodent], spec_flux[goodent], spec_df[goodent], spec_s2n[goodent]
 
@@ -302,7 +308,7 @@ def plot_picklefilecontent(specs2plot,picklefile,plotname=None,plotdir=None,z_re
         max_wave              = spec_dic['wavelengths'][max_S2N_ent]
 
         if verbose: print(' - Setting up and generating plot:\n   '+plotname)
-        fig = plt.figure(figsize=(6, 5))
+        fig = plt.figure(figsize=(6, 7))
         fig.subplots_adjust(wspace=0.1, hspace=0.5,left=0.1, right=0.99, bottom=0.11, top=0.92)
         Fsize    = 9
         lthick   = 2
@@ -315,7 +321,7 @@ def plot_picklefilecontent(specs2plot,picklefile,plotname=None,plotdir=None,z_re
         plt.ioff()
 
         # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-        plt.subplot(3,1,1)
+        plt.subplot(4,1,1)
 
         plt.plot(spec_wave,template_shift_S2Nmax_normalized,'g.',lw=lthick+1, markersize=marksize,alpha=1.0,
                  label='Temp. at z(S/N$_\\textrm{max}$) = '+str(max_z))
@@ -323,21 +329,39 @@ def plot_picklefilecontent(specs2plot,picklefile,plotname=None,plotdir=None,z_re
                  'g-',lw=lthick+2, markersize=marksize,alpha=1.0,
                  label='Temp. flux$_\\textrm{tot}$ scale $\\alpha$ = '+str("%.4f" % flux_scale_S2Nmax)+'')
 
-        plt.plot(spec_wave,spec_flux,'k-',lw=lthick, markersize=marksize,alpha=1.0,label='Spec.')
-        plt.fill_between(spec_wave, spec_flux-spec_df, spec_flux+spec_df,color='black',alpha=0.2,label='Spec. err')
+        plt.plot(spec_wave,spec_flux,'k-',lw=lthick, markersize=marksize,alpha=1.0,label='Spectrum')
 
-        plt.plot([max_wave,max_wave],[np.min(spec_flux-spec_df),np.max(spec_flux+spec_df)],'--r',lw=lthick,
+
+        if showspecerr:
+            plt.fill_between(spec_wave, spec_flux-spec_df, spec_flux+spec_df,color='black',alpha=0.2,label='Spectrum err')
+
+            SNlineYrange = [np.min(spec_flux-spec_df),np.max(spec_flux+spec_df)]
+        else:
+            SNlineYrange = [np.min(spec_flux),np.max(spec_flux)]
+
+        plt.plot([max_wave,max_wave],SNlineYrange,'--r',lw=lthick,
                  markersize=marksize,alpha=1.0,label='S/N$_\\textrm{max}$ = '+str("%.4f" % max_S2N)+'')
+
         plt.xlabel(' Wavelength [A]')
         plt.ylabel(' Flux ')
         #plt.ylim([-2,6])
         leg = plt.legend(fancybox=True, loc='upper center',prop={'size':Fsize/1.3},ncol=3,numpoints=1,
-                         bbox_to_anchor=(0.5, 1.43))  # add the legend
+                         bbox_to_anchor=(0.45, 1.43))  # add the legend
         leg.get_frame().set_alpha(0.7)
 
         # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-        plt.subplot(3,1,2)
-        plt.plot(spec_wave,spec_dic['ccresultsarr_S2N'][besttemplate_ent,:],'-r',lw=lthick, markersize=marksize,alpha=1.0)
+        plt.subplot(4,1,2)
+
+        plt.plot(spec_wave,spec_s2n,'k-',lw=lthick, markersize=marksize,alpha=1.0)
+
+        plt.plot([max_wave,max_wave],[np.min(spec_s2n),np.max(spec_s2n)],'--r',lw=lthick,
+                 markersize=marksize,alpha=1.0)
+        plt.xlabel(' Wavelength [A]')
+        plt.ylabel(' Spectrum S/N ')
+
+        # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+        plt.subplot(4,1,3)
+        plt.plot(spec_dic['wavelengths'],spec_dic['ccresultsarr_S2N'][besttemplate_ent,:],'-r',lw=lthick, markersize=marksize,alpha=1.0)
         plt.plot([max_wave,max_wave],[np.min(spec_dic['ccresultsarr_S2N'][besttemplate_ent,:]),
                                       np.max(spec_dic['ccresultsarr_S2N'])],'--r',lw=lthick,
                  markersize=marksize,alpha=1.0)
@@ -348,8 +372,8 @@ def plot_picklefilecontent(specs2plot,picklefile,plotname=None,plotdir=None,z_re
         # leg.get_frame().set_alpha(0.7)
 
         # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-        plt.subplot(3,1,3)
-        plt.plot(spec_wave,spec_dic['ccresultsarr_chi2'][besttemplate_ent,:],'-r',lw=lthick, markersize=marksize,alpha=1.0)
+        plt.subplot(4,1,4)
+        plt.plot(spec_dic['wavelengths'],spec_dic['ccresultsarr_chi2'][besttemplate_ent,:],'-r',lw=lthick, markersize=marksize,alpha=1.0)
         plt.plot([max_wave,max_wave],[np.min(spec_dic['ccresultsarr_chi2'][besttemplate_ent,:]),np.max(spec_dic['ccresultsarr_chi2'][besttemplate_ent,:])],'--r',lw=lthick,
                  markersize=marksize,alpha=1.0)
         plt.xlabel(' Wavelength [A]')
