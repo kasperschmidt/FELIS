@@ -349,7 +349,8 @@ def plot_picklefilecontent(specs2plot,picklefile,plotnames=None,plotdir=None,z_r
                          bbox_to_anchor=(0.45, 1.43))  # add the legend
         leg.get_frame().set_alpha(0.7)
         # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-        plt.text(0.45, 1.45, 'Template: '+template.split('/')[-1].replace('_','\_'),
+        plt.text(0.45, 1.45, 'Template No. '+str(int(besttemplate_ent+1))+'/'+str(len(spec_dic['templatevec']))+
+                 ': '+template.split('/')[-1].replace('_','\_'),
                  fontsize=Fsize/1.3, horizontalalignment='center', transform=ax.transAxes)
 
         # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -388,26 +389,31 @@ def plot_picklefilecontent(specs2plot,picklefile,plotnames=None,plotdir=None,z_r
 # = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =
 def minimize_chi2(data,data_sigma,template,verbose=True):
     """
-    Minimizing chi2 for a 1D tempalte matching and returning the corresponding scaling, alpha.
+    Minimizing chi2 for a 1D template matching and returning the corresponding (flux) scaling, alpha.
 
     Done using that
         chi**2         = Sum_i (d_i - alpha * t_i)**2 / sigma_i**2
     and that dchi**2/dalpha = 0 implies
         alpha          = ( Sum_i d_i*t_i/sigma_i**2 ) / ( Sum_i t_i**2 / sigma_i**2 )
-        sigma_alpha**2 = 1 / ( Sum_i t_i**2 / sigma_i**2 ) = alpha_variance
+        sigma_alpha**2 = 1 / Sum_ix( t_i**2 / sigma_i**2 ) = alpha_variance
 
-    Here, d is the data (flux from spectrum), sigma is the uncertainy on the data, t is the template,
+    Here, d is the data (flux from spectrum), sigma is the uncertainty on the data, t is the template,
     alpha is the flux scaling of the template, sigma_alpha is the uncertainty on alpha, and i runs
     over the pixels in the spectrum.
 
-    --- TEMPALTE ---
+    --- INPUT ---
 
     data            Data to match template to
     data_sigma      Uncertainty on data, i.e., sqrt(variance)
-    template        Template to serach for in data. Should be of the same lenght as data
+    template        Normalized template to search for in data. Should be of the same lenght as data
     verbose         Toggle verbosity
 
     """
+    normlim = 1e-10
+    sumdiff = np.abs((np.sum(template)-1.0))
+    if sumdiff > normlim: #checking if provided template is normalized
+        print('FELIS WARNING: Template is not normalized: |sum(template)-1.0| = '+str(sumdiff)+' > '+str(normlim))
+
     if len(data) == len(template):
         Npix = len(data)
     else:
@@ -428,15 +434,19 @@ def minimize_chi2(data,data_sigma,template,verbose=True):
                          np.sum( template[goodent]**2 / data_sigma[goodent]**2 )
 
         alpha_variance = 1.0 / np.sum( template[goodent]**2 / data_sigma[goodent]**2 )
+        # KBS180723 Try define Sum(t**2/err**2 seperately)
         S2N            = alpha / np.sqrt(alpha_variance)
         chi2_min       = np.sum( (data[goodent] - alpha * template[goodent])**2 / data_sigma[goodent]**2 )
+
+        if S2N > 15.: pdb.set_trace()
+        plt.plot(data[goodent]), plt.plot(alpha*template[goodent]), plt.plot(data_sigma[goodent])
 
     return alpha, alpha_variance, S2N, chi2_min, Ngoodent
 # = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =
 def cross_correlate_template(spectrum,template,z_restframe=None,waverange=None,
                              min_template_level=1e-2,spec_median_sub=False,verbose=True):
     """
-    Function to cross-ocrrelate a spectrum with a template using felis.minimize_chi2().
+    Function to cross-correlate a spectrum with a template using felis.minimize_chi2().
     It can be run for multiple spectra with the wrapper match_templates2specs which also enables
     easy plotting of the results.
 
@@ -508,6 +518,18 @@ def cross_correlate_template(spectrum,template,z_restframe=None,waverange=None,
     for ii in np.arange(Npix):
         rollsize       = int(ii+np.floor(Npix/2.))
         template_shift = np.roll(template_triplelength, rollsize)[Npix:-Npix]
+
+        normlim = 1e-10
+        sumdiff = np.abs((np.sum(template_shift)-1.0))
+        if sumdiff > normlim: #making sure "half-tempalte" shifts are also normalized
+            template_shift     = template_shift / np.sum(template_shift)
+
+        # if ii == Npix-1:
+        #     plt.clf()
+        #     plt.plot(template_triplelength,'r--')
+        #     plt.plot(template_shift     ,'b-')
+        #     plt.savefig('/Users/kschmidt/Desktop/'+spectrum.split('/')[-1].replace('.fits','template.png'))
+        #     pdb.set_trace()
 
         try:
             flux_scale, flux_scale_variance, S2N, chi2_min, NgoodentChi2 = \
