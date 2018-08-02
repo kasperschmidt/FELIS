@@ -424,19 +424,18 @@ def minimize_chi2(data,data_sigma,template,verbose=True):
     Ngoodent = len(goodent)
 
     if Ngoodent == 0:
-        if verbose: print(' - No entries left where data_sigma > 0 & data is finite & tempalte != 0, so returning 0s')
+        if verbose: print(' - No entries left where data_sigma > 0 & data is finite & template != 0, so returning 0s')
         chi2_min        = 0.0
         alpha           = 0.0
         alpha_variance  = 0.0
         S2N             = 0.0
     else:
-        alpha          = np.sum( data[goodent] * template[goodent] / data_sigma[goodent]**2 ) / \
-                         np.sum( template[goodent]**2 / data_sigma[goodent]**2 )
+        t2err2         = template[goodent]**2 / data_sigma[goodent]**2
+        alpha          = np.sum( data[goodent] * template[goodent] / data_sigma[goodent]**2 ) / np.sum(t2err2)
+        alpha_variance = 1.0 / np.sum(t2err2)
 
-        alpha_variance = 1.0 / np.sum( template[goodent]**2 / data_sigma[goodent]**2 )
-        # KBS180723 Try define Sum(t**2/err**2 seperately)
         S2N            = alpha / np.sqrt(alpha_variance)
-        chi2_min       = np.sum( (data[goodent] - alpha * template[goodent])**2 / data_sigma[goodent]**2 )
+        chi2_min       = np.sum( ( data[goodent]-alpha*template[goodent] )**2 / data_sigma[goodent]**2 )
 
         if S2N > 15.: pdb.set_trace()
         plt.plot(data[goodent]), plt.plot(alpha*template[goodent]), plt.plot(data_sigma[goodent])
