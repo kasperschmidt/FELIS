@@ -20,25 +20,27 @@ from astropy import units
 import astropy.convolution
 # = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =
 def match_templates2specs(templates,spectra,speczs,picklename,wavewindow=[50.0],wavecen_restframe=[1908.0],
-                          vshift=None,min_template_level=1e-4,plotdir=None,plot_allCCresults=False,verbose=True):
+                          vshift=None,min_template_level=1e-4,plotdir=None,plot_allCCresults=False,
+                          subtract_spec_median=True,verbose=True):
     """
     Wrapper around felis cross-correlation template matching, to match a list of spectra with a list of templtes.
 
     --- INPUT ---
-    spectra             fits spectra to find a (cross-correlation) match to template for
-    templates           fits templates to correlate with
-    speczs              Spectroscopic redshifts to perform cross-correlation in rest-frame (shifting the spectrum).
-    picklename          Name of pickle file to store final cross-correlation results in
-    wavewindow          Window (wavecen_restframe * (1+speczs) +/- wavewindow) to perform template matching over.
-    wavecen_restframe   Central rest-frame  wavelength of the region to match
-    vshift              If a velcotiy shift is known, provide it here and it will be stored in output (not used)
-    min_template_level  The template is interpolated to the wavelength grid of the spectrum and extrapolated
-                        beyond it's edges if nescessary. In this extrapolation (assuming the template goes to ~0
-                        at the edges), very small values (e.g., <1e-20) can be returned. To set these to 0.0
-                        provide a level below which all values in the interpolated template are treated as 0s.
-    plotdir             Directory to store plots to
-    plot_allCCresults   To plot all the cross-correlation plots, set this to True
-    verbose             Toggle verbosity
+    spectra               fits spectra to find a (cross-correlation) match to template for
+    templates             fits templates to correlate with
+    speczs                Spectroscopic redshifts to perform cross-correlation in rest-frame (shifting the spectrum).
+    subtract_spec_median  Subtract median value of spectrum (approximating the continuum level)
+    picklename            Name of pickle file to store final cross-correlation results in
+    wavewindow            Window (wavecen_restframe * (1+speczs) +/- wavewindow) to perform template matching over.
+    wavecen_restframe     Central rest-frame  wavelength of the region to match
+    vshift                If a velcotiy shift is known, provide it here and it will be stored in output (not used)
+    min_template_level    The template is interpolated to the wavelength grid of the spectrum and extrapolated
+                          beyond it's edges if nescessary. In this extrapolation (assuming the template goes to ~0
+                          at the edges), very small values (e.g., <1e-20) can be returned. To set these to 0.0
+                          provide a level below which all values in the interpolated template are treated as 0s.
+    plotdir               Directory to store plots to
+    plot_allCCresults     To plot all the cross-correlation plots, set this to True
+    verbose               Toggle verbosity
 
     --- EXAMPLE OF USE ---
     import felis
@@ -119,7 +121,7 @@ def match_templates2specs(templates,spectra,speczs,picklename,wavewindow=[50.0],
             waverange   = [wavecenter-wavewindow[ss],wavecenter+wavewindow[ss]]
 
             wave, ccresults, max_S2N, max_z, continuumlevel = \
-                felis.cross_correlate_template(spec,temp,z_restframe=speczs[ss],spec_median_sub=True,
+                felis.cross_correlate_template(spec,temp,z_restframe=speczs[ss],spec_median_sub=subtract_spec_median,
                                                waverange=waverange,min_template_level=min_template_level)
 
             if tt == 0:
@@ -278,10 +280,12 @@ def plot_picklefilecontent(specs2plot,picklefile,plotnames=None,plotdir=None,z_r
             z_spec=spec_dic['zLya']
 
             spec_wave, spec_flux, spec_df, spec_s2n = \
-                spec_wave / (1+z_spec), spec_flux / (1+z_spec), spec_df, spec_s2n
+                spec_wave / (1+z_spec), spec_flux * (1.0+z_spec), spec_df * (1.0+z_spec), spec_s2n
+        else:
+            z_spec = 0.0
 
         # subtract continuum level from spectrum
-        spec_flux = spec_flux - spec_dic['continuumlevel']
+        spec_flux = spec_flux - spec_dic['continuumlevel'] * (1.0+z_spec)
 
         # Limit spectrum to range of wavelengths cross-correlated with tempalte
         goodent = np.where( (spec_wave >= spec_dic['wavelengths'][0]) & (spec_wave <= spec_dic['wavelengths'][-1]) )[0]
@@ -294,6 +298,25 @@ def plot_picklefilecontent(specs2plot,picklefile,plotnames=None,plotdir=None,z_r
         t_wave_init, t_flux_init, t_df_init, t_s2n_init = felis.load_spectrum(template,verbose=verbose)
         func       = scipy.interpolate.interp1d(t_wave_init,t_flux_init,kind='linear',fill_value="extrapolate")
         t_flux     = func(spec_wave)
+
+
+        ## HERE KBS 180802; why doesn't the S/N plot show the high values seen in the crosscorrelate function??
+        # goodentFIT  = np.where((spec_df > 0) & (np.isfinite(spec_flux)) & (template != 0))[0]
+        # print(spec_flux[goodentFIT]/spec_df[goodentFIT])
+        # print(spec_flux/spec_df)
+        #
+        # spec_wave_init, spec_flux_init, spec_df_init, spec_s2n_init = felis.load_spectrum(spec,verbose=verbose)
+        # spec_wave_init, spec_flux_init, spec_df_init, spec_s2n_init = spec_wave_init[goodent], spec_flux_init[goodent], spec_df_init[goodent], spec_s2n_init[goodent]
+        #
+        # nullvec_flux = spec_flux * (1+z_spec) - spec_flux_init
+        # nullvec_df = spec_df * (1+z_spec) - spec_df_init
+        #
+        #
+        # print(nullvec_flux)
+        # print(nullvec_df)
+        # print(spec_flux/spec_df - spec_s2n_init)
+        # pdb.set_trace()
+        #######
 
         # Getting the entry in the CC flux scalings vector for the given template where S/N is max
         max_S2N_ent      = np.where(spec_dic['ccresultsarr_S2N'][besttemplate_ent,:] == max_S2N)[0][0]
@@ -329,8 +352,13 @@ def plot_picklefilecontent(specs2plot,picklefile,plotnames=None,plotdir=None,z_r
                  'g-',lw=lthick+2, markersize=marksize,alpha=1.0,
                  label='Temp. flux$_\\textrm{tot}$ scale $\\alpha$ = '+str("%.4f" % flux_scale_S2Nmax)+'')
 
-        plt.plot(spec_wave,spec_flux,'k-',lw=lthick, markersize=marksize,alpha=1.0,label='Spectrum')
-
+        if spec_dic['continuumlevel'] != 0.0:
+            plt.plot(spec_wave,spec_flux+spec_dic['continuumlevel']*(1+z_spec),'k-',lw=lthick,
+                     markersize=marksize,alpha=0.5, label='Spectrum (w/ cont.)')
+            speclabel = 'Spectrum (w/o cont.)'
+        else:
+            speclabel = 'Spectrum (w/ cont.)'
+        plt.plot(spec_wave,spec_flux,'k-',lw=lthick, markersize=marksize,alpha=1.0,label=speclabel)
 
         if showspecerr:
             plt.fill_between(spec_wave, spec_flux-spec_df, spec_flux+spec_df,color='black',alpha=0.2,label='Spectrum err')
@@ -356,9 +384,10 @@ def plot_picklefilecontent(specs2plot,picklefile,plotnames=None,plotdir=None,z_r
         # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
         plt.subplot(4,1,2)
 
-        plt.plot(spec_wave,spec_s2n,'k-',lw=lthick, markersize=marksize,alpha=1.0)
+        plt.plot(spec_wave,spec_s2n,'k-',lw=lthick, markersize=marksize,alpha=0.5)
+        plt.plot(spec_wave,spec_flux/spec_df,'k-',lw=lthick, markersize=marksize,alpha=1.0)
 
-        plt.plot([max_wave,max_wave],[np.min(spec_s2n),np.max(spec_s2n)],'--r',lw=lthick,
+        plt.plot([max_wave,max_wave],[np.min(spec_flux/spec_df),np.max(spec_flux/spec_df)],'--r',lw=lthick,
                  markersize=marksize,alpha=1.0)
         plt.xlabel(' Wavelength [A]')
         plt.ylabel(' Spectrum S/N ')
@@ -437,8 +466,8 @@ def minimize_chi2(data,data_sigma,template,verbose=True):
         S2N            = alpha / np.sqrt(alpha_variance)
         chi2_min       = np.sum( ( data[goodent]-alpha*template[goodent] )**2 / data_sigma[goodent]**2 )
 
-        if S2N > 15.: pdb.set_trace()
-        plt.plot(data[goodent]), plt.plot(alpha*template[goodent]), plt.plot(data_sigma[goodent])
+        # if S2N > 80.: pdb.set_trace()
+        # plt.plot(data[goodent]), plt.plot(alpha*template[goodent]), plt.plot(data_sigma[goodent])
 
     return alpha, alpha_variance, S2N, chi2_min, Ngoodent
 # = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =
@@ -450,7 +479,7 @@ def cross_correlate_template(spectrum,template,z_restframe=None,waverange=None,
     easy plotting of the results.
 
     --- INPUT ---
-    spectrum            fits spectrum to find a (cross-correlation) match to template for
+    spectrum            fits spectrum to find a (cross-correlation) match to template for (flux in f_lambda)
     template            fits template to correlate with
     z_restframe         To perform cross-correlation in rest-frame (shifting the spectrum) provide a redshift.
     waverange           To prevent running the cross-correlation on the full spectrum, provide the wavelength
@@ -482,18 +511,20 @@ def cross_correlate_template(spectrum,template,z_restframe=None,waverange=None,
         goodent = np.where( (s_wave > waverange[0]) & (s_wave < waverange[1]) )
         s_wave, s_flux, s_df, s_s2n = s_wave[goodent], s_flux[goodent], s_df[goodent], s_s2n[goodent]
 
-    if z_restframe is not None:
-        if verbose: print(' - Shifting spectrum to rest-frame using the redshift '+str(z_restframe))
-        s_wave, s_flux, s_df, s_s2n = s_wave / (1+z_restframe), s_flux / (1+z_restframe), s_df, s_s2n
-    else:
-        z_restframe=1.0
-
-    if verbose: print(' - Removing continuum from spectrum ')
+    if verbose: print(' - Estimating continuum from spectrum (median value) in observed units')
     if spec_median_sub:
         continuumval = np.median(s_flux)
     else:
         continuumval = 0.0
-    s_flux       = s_flux - continuumval
+
+    if z_restframe is not None:
+        if verbose: print(' - Shifting spectrum to rest-frame using the redshift '+str(z_restframe))
+        s_wave, s_flux, s_df, s_s2n = s_wave / (1+z_restframe), s_flux * (1+z_restframe), s_df * (1+z_restframe), s_s2n
+    else:
+        z_restframe=0.0
+
+    if verbose: print(' - Removing continuum from spectrum ')
+    s_flux       = s_flux - continuumval * (1.0+z_restframe)
 
     if verbose: print(' - Interpolate template to spectrums wavelength resolution before cross-correlating')
     t_wave_init, t_flux_init, t_df_init, t_s2n_init = felis.load_spectrum(template)
@@ -505,7 +536,9 @@ def cross_correlate_template(spectrum,template,z_restframe=None,waverange=None,
     if len(t_flux[t_flux != 0]) == 0:
         if verbose: print(' WARNING All interpolated template pixels are 0.0')
     else:
-        t_flux     = t_flux / np.sum(t_flux)
+        temp_sum = np.sum(t_flux)
+        # temp_int = np.trapz(t_flux,s_wave)
+        t_flux   = t_flux / temp_sum
 
     Npix = len(s_flux)
 
@@ -514,14 +547,20 @@ def cross_correlate_template(spectrum,template,z_restframe=None,waverange=None,
 
     ccresults = np.zeros([Npix,5])
 
+    # printinfo = True
     for ii in np.arange(Npix):
         rollsize       = int(ii+np.floor(Npix/2.))
         template_shift = np.roll(template_triplelength, rollsize)[Npix:-Npix]
 
         normlim = 1e-10
         sumdiff = np.abs((np.sum(template_shift)-1.0))
-        if sumdiff > normlim: #making sure "half-tempalte" shifts are also normalized
-            template_shift     = template_shift / np.sum(template_shift)
+        if sumdiff > normlim: #making sure "half-template" shifts are also normalized
+            temp_sum = np.sum(template_shift)
+            if temp_sum == 0: # only attempt normalization if template is not just zeros
+                pass
+            else:
+                # temp_int = np.trapz(template_shift,s_wave)
+                template_shift     = template_shift / temp_sum
 
         # if ii == Npix-1:
         #     plt.clf()
@@ -540,6 +579,15 @@ def cross_correlate_template(spectrum,template,z_restframe=None,waverange=None,
                   'Stopping for further investigation')
 
             pdb.set_trace()
+
+        # if (S2N > 80.) & (printinfo == True):
+        #     goodent  = np.where((s_flux > 0) & (np.isfinite(s_flux)) & (template_shift != 0))[0]
+        #     print(s_flux[goodent])
+        #     print(s_df[goodent])
+        #     print(s_wave[goodent])
+        #     print(s_flux[goodent]/s_df[goodent])
+        #     printinfo = False
+        #     #pdb.set_trace()
 
         # show_illustrative_plot = False
         # if show_illustrative_plot:
