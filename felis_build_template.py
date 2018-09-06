@@ -34,7 +34,7 @@ def build_template(wavelenghts,templatecomponents,noise=None,
                                     ['DELTA', position, , total flux, 'info']     # Delta function. Will be added at
                                                                                   # wavelength nearest postion in the
                                                                                   # generated template
-                                    ['LSF', mean, sigma, 'info']                  # Gaussian LSF to convolve template with
+                                    ['LSF', sigma, 'info']                        # Gaussian LSF to convolve template with
                                     ['CONT', level, slope, lam0, 'info']          # linear continuum on the form
                                                                                   # C = level + slope * (lam-lam0)
                                                                                   # Alternatively, a pre-defined continuum
@@ -83,34 +83,45 @@ def build_template(wavelenghts,templatecomponents,noise=None,
     headerdic = collections.OrderedDict()
     wavevec   = np.arange(wavelenghts[0],wavelenghts[1],wavelenghts[2])
     fluxvec   = wavevec*0.0
+    LSF       = False  # default is no LSF convolution
+    N_LSF     = 0      # count number of LSF setups provided - will only handle 1 set of parameters.
 
     for key in templatecomponents.keys():
-        if templatecomponents[key][0] == 'GAUSS':
+        if templatecomponents[key][0].upper() == 'GAUSS':
             param     = templatecomponents[key][1], templatecomponents[key][2], templatecomponents[key][3]
             gaussvec  = fbt.gauss_skew(wavevec,*param)
             fluxvec   = fluxvec + templatecomponents[key][4] * gaussvec
             for kk in [0,1,2,3,4]:
                 headerdic['F'+key+'_'+str(kk)] = [templatecomponents[key][kk],templatecomponents[key][-1]]
 
-        elif templatecomponents[key][0] == 'CONT':
+        elif templatecomponents[key][0].upper() == 'CONT':
             fluxvec  = fluxvec + templatecomponents[key][1] + \
                        templatecomponents[key][2]*(wavevec - templatecomponents[key][3])
             for kk in [0,1,2]:
                 headerdic['F'+key+'_'+str(kk)] = [templatecomponents[key][kk],templatecomponents[key][-1]]
 
-        elif templatecomponents[key][0] == 'DELTA':
+        elif templatecomponents[key][0].upper() == 'DELTA':
             dwave    = np.abs(wavevec - templatecomponents[key][1])
             waveent  = np.where(dwave == np.min(dwave))[0]
             fluxvec[waveent] = fluxvec[waveent] + templatecomponents[key][2]
             for kk in [0,1,2]:
                 headerdic['F'+key+'_'+str(kk)] = [templatecomponents[key][kk],templatecomponents[key][-1]]
 
-        elif templatecomponents[key][0] == 'FEATURE':
+        elif templatecomponents[key][0].upper() == 'LSF':
+            key_LSF = key
+            LSF     = True
+            N_LSF   = N_LSF + 1
+
+        elif templatecomponents[key][0].upper() == 'FEATURE':
             func       = scipy.interpolate.interp1d(templatecomponents[key][1],templatecomponents[key][2],
                                                     kind='linear',fill_value=0.0)
             flux_feat = func(wavevec)
             fluxvec    = fluxvec + flux_feat
             headerdic['F'+key+'_1'] = [templatecomponents[key][0],templatecomponents[key][-1]]
+
+        elif templatecomponents[key][0].upper() == 'SKIP':
+            continue
+
         else:
             sys.exit('Invalid template component "'+templatecomponents[key][0]+'"')
 
@@ -137,6 +148,48 @@ def build_template(wavelenghts,templatecomponents,noise=None,
 
     fluxerr = np.abs(noisevec)
     headerdic['FERR_1'] = ['noise','Uncertainty on flux = noise from FNOISE keys']
+
+    if verbose: print(' - Checking for LSF parameters ')
+    if LSF:
+        if N_LSF == 1:
+            if verbose: print('   Convolving template with LSF setup found in component dictionary: ')
+            LSFparam = templatecomponents[key_LSF]  #['LSF', sigma, 'info'] # Gaussian LSF to convolve template with
+            if verbose: print('   LSF info: '+LSFparam[2])
+            if verbose: print('   sigma_LSF = '+str(LSFparam[1]))
+
+            dwave       = np.median(np.diff(wavevec))
+            Nsigma      = 5.0
+            windowwidth = np.int( (LSFparam[1]/dwave) * 2.0 * Nsigma ) # window width of +/-10 sigma
+
+            if windowwidth % 2 == 0: # window width is even.
+                windowwidth = windowwidth + 1
+
+            if windowwidth < 5:
+                windowwidth = 5
+                print('   LSF sigma resulted in a LSF convolution window of less than 5 wavelength pixels. '
+                      'Using 5 pixels for LSF gaussian.')
+
+            if windowwidth > len(wavevec):
+                sys.exit('LSF sigma +/- '+str(Nsigma)+'sigma restults in a LSF Gaussian '
+                         'convolution kernal larger than considered wavelength range ('+str(windowwidth)+
+                         ' > '+str(len(wavevec))+')')
+
+            wave_LSF    = wavevec[0:windowwidth]
+            param       = np.mean(wave_LSF[int(windowwidth/2.)]), LSFparam[1], 0.0
+            gauss_LSF   = fbt.gauss_skew(wave_LSF,*param) * dwave # normalize Gaussian
+
+            # Check that gaussian is normalized ...
+            # print(' ----> Trapetzoidal integration of LSF guass = '+str(scipy.integrate.trapz(gauss_LSF,wave_LSF)))
+            # print(' ----> sum of LSF guass (PDF sums to 1)      = '+str(scipy.integrate.trapz(gauss_LSF,wave_LSF)))
+            # plt.plot(wave_LSF,gauss_LSF,'bo')
+            # plt.savefig('./LSFgenerated.pdf')
+            # plt.clf()
+
+            fluxvec   = np.convolve(fluxvec, gauss_LSF, 'same')#
+        else:
+            sys.exit(' Found '+str(N_LSF)+' LSF setups when building FELIS template; only one LSF setup can be provided')
+    else:
+        if verbose: print('   None found - no convolution with LSF ')
 
     felis.save_spectrum(tempfile,wavevec,fluxvec,fluxerr,headerinfo=headerdic,overwrite=overwrite,verbose=verbose)
 
@@ -242,7 +295,7 @@ def plot_template(templatefits,zoomx=None,showerr=True,verbose=True):
         plt.xlabel(' Wavelength [?]')
     plt.ylabel(' S/N ')
     # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-    if verbose: print('   Saving plot to'+plotname)
+    if verbose: print('   Saving plot to '+plotname)
     plt.savefig(plotname)
     plt.clf()
     plt.close('all')
