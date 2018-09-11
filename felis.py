@@ -6,18 +6,8 @@ import pdb
 import matplotlib.pyplot as plt
 import datetime
 import pickle
-import time
-import os
 import sys
-import glob
 import numpy as np
-import collections
-import astropy
-import collections
-from astropy import wcs
-from astropy.coordinates import SkyCoord
-from astropy import units
-import astropy.convolution
 # = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =
 def match_templates2specs(templates,spectra,speczs,picklename,wavewindow=[50.0],wavecen_restframe=[1908.0],
                           vshift=None,min_template_level=1e-4,plotdir=None,plot_allCCresults=False,
@@ -78,7 +68,7 @@ def match_templates2specs(templates,spectra,speczs,picklename,wavewindow=[50.0],
         'wavelengths'               :   The wavelength vector used for the cross-correlation matching of
                                         each of the N templates
         'templatevec'               :   list of each of the N templates matched to spectrum
-        'zLya'                      :   Lyman alpha redshift for spectrum
+        'zspec'                     :   Spectroscopic redshift for spectrum
         'zCCmaxvec'                 :   the redshift corresponding to max S/N for each of the N templates matched
         'ccresultsarray_flux'       :   fluc vectors for each of the N templates matched
         'ccresultsarray_variance'   :   Variance vecotrs for each of the N templates matched
@@ -145,7 +135,7 @@ def match_templates2specs(templates,spectra,speczs,picklename,wavewindow=[50.0],
                 zCCmaxvec              = np.append(zCCmaxvec,max_z)
                 #print('-------------------------->'+str(np.max(ccresultsarr_S2N[tt,:]))+'  '+str(S2NCCmaxvec[tt]))
 
-        ccresultdic[spec]  = {'wavelengths':wave, 'templatevec':templatevec, 'zLya':speczs[ss],
+        ccresultdic[spec]  = {'wavelengths':wave, 'templatevec':templatevec, 'zspec':speczs[ss],
                               'zCCmaxvec':zCCmaxvec, 'ccresultsarray_flux':ccresultsarr_flux,
                               'ccresultsarray_variance':ccresultsarr_variance,'S2NCCmaxvec':S2NCCmaxvec,
                               'ccresultsarr_S2N':ccresultsarr_S2N,'ccresultsarr_chi2':ccresultsarr_chi2,
@@ -178,7 +168,7 @@ def match_templates2specs(templates,spectra,speczs,picklename,wavewindow=[50.0],
     loaddic = felis.load_picklefile(picklename)
     return  loaddic
 # = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =
-def selection_from_picklefile(picklefile,S2Nmaxrange=[3,1e4],zLyarange=[0,10],verbose=True):
+def selection_from_picklefile(picklefile,S2Nmaxrange=[3,1e4],zspecrange=[0,10],verbose=True):
     """
     Function, returning the list of spectra (keys) from the pickled dictionary satisfying a set of
     criteria
@@ -200,12 +190,12 @@ def selection_from_picklefile(picklefile,S2Nmaxrange=[3,1e4],zLyarange=[0,10],ve
     goodkeys = []
     # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
     if verbose: print(' - Looking for keys in the pickled dictionary satisfying the cuts:')
-    if verbose: print('       z_Lya     :  ['+str(zLyarange[0])+','+str(zLyarange[1])+']')
+    if verbose: print('       z_Lya     :  ['+str(zspecrange[0])+','+str(zspecrange[1])+']')
     if verbose: print('       max(S/N)  :  ['+str(S2Nmaxrange[0])+','+str(S2Nmaxrange[1])+']')
     for key in loaddic.keys():
         keydic = loaddic[key]
 
-        if ((keydic['zLya'] > zLyarange[0]) & (keydic['zLya'] < zLyarange[1])):
+        if ((keydic['zspec'] > zspecrange[0]) & (keydic['zspec'] < zspecrange[1])):
             S2Nmax = np.max(keydic['S2NCCmaxvec'])
             if ((S2Nmax > S2Nmaxrange[0]) & (S2Nmax < S2Nmaxrange[1])):
                 goodkeys.append(key)
@@ -277,7 +267,7 @@ def plot_picklefilecontent(specs2plot,picklefile,plotnames=None,plotdir=None,z_r
 
         # moving spectrum to restframe
         if z_restframe is None:
-            z_spec=spec_dic['zLya']
+            z_spec=spec_dic['zspec']
 
             spec_wave, spec_flux, spec_df, spec_s2n = \
                 spec_wave / (1+z_spec), spec_flux * (1.0+z_spec), spec_df * (1.0+z_spec), spec_s2n
@@ -298,25 +288,6 @@ def plot_picklefilecontent(specs2plot,picklefile,plotnames=None,plotdir=None,z_r
         t_wave_init, t_flux_init, t_df_init, t_s2n_init = felis.load_spectrum(template,verbose=verbose)
         func       = scipy.interpolate.interp1d(t_wave_init,t_flux_init,kind='linear',fill_value="extrapolate")
         t_flux     = func(spec_wave)
-
-
-        ## HERE KBS 180802; why doesn't the S/N plot show the high values seen in the crosscorrelate function??
-        # goodentFIT  = np.where((spec_df > 0) & (np.isfinite(spec_flux)) & (template != 0))[0]
-        # print(spec_flux[goodentFIT]/spec_df[goodentFIT])
-        # print(spec_flux/spec_df)
-        #
-        # spec_wave_init, spec_flux_init, spec_df_init, spec_s2n_init = felis.load_spectrum(spec,verbose=verbose)
-        # spec_wave_init, spec_flux_init, spec_df_init, spec_s2n_init = spec_wave_init[goodent], spec_flux_init[goodent], spec_df_init[goodent], spec_s2n_init[goodent]
-        #
-        # nullvec_flux = spec_flux * (1+z_spec) - spec_flux_init
-        # nullvec_df = spec_df * (1+z_spec) - spec_df_init
-        #
-        #
-        # print(nullvec_flux)
-        # print(nullvec_df)
-        # print(spec_flux/spec_df - spec_s2n_init)
-        # pdb.set_trace()
-        #######
 
         # Getting the entry in the CC flux scalings vector for the given template where S/N is max
         max_S2N_ent      = np.where(spec_dic['ccresultsarr_S2N'][besttemplate_ent,:] == max_S2N)[0][0]
