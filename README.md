@@ -3,7 +3,7 @@
 
 README for the template matching software FELIS.
 
-If you find FELIS useful please reference this FELIS GitHub repository at https://github.com/kasperschmidt/FELIS. 
+If you find FELIS useful please reference the FELIS GitHub repository at https://github.com/kasperschmidt/FELIS. 
 
 ## Table of Content
 <a href="FELISlogo.png"><img src="FELISlogo.png" align="right" height="180" ></a>
@@ -16,7 +16,8 @@ If you find FELIS useful please reference this FELIS GitHub repository at https:
 
 ## Description
 
-The small tool for Finding Emission Lines In Spectra (FELIS) is build in Python, and can be used to search for spetral features like emission lines in extracted 1D spectra.
+The small tool for Finding Emission Lines In Spectra (FELIS) is build in Python, and can be used to search for spetral features like emission lines in extracted 1D spectra. 
+The serach is performed via standard template matching, by minimizing the chi2 between the input data (spectrum) and the model (spectral template). FELIS provide and estimate of the signinficance of the template match, by providing the S/N for the minimized chi2. The scaling of the FELIS tempalte, corresponds to the integrated flux of a given feature/template.
 
 ## Installing FELIS
 
@@ -43,7 +44,7 @@ The template matching itself is handled by `felis.py`, whereas `felis_build_temp
   - The function that performs the cross-correlation, or rather the template match, between each tempalte and spectrum provided, by minimizig the chi2 between the template and the input data.
 
 - `felis_build_template.build_template()`
-  - The main function to generate templates that can be matched to the 1D spectra with .
+  - The main function to generate templates that can be matched to the 1D spectra.
 
 ## Running FELIS
 
