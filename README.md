@@ -3,11 +3,10 @@
 
 README for the template matching software FELIS.
 
-<a href="FELISlogo.png"><img src="FELISlogo.png" align="center" height="180" ></a>
-
 If you find FELIS useful please reference this FELIS GitHub repository at https://github.com/kasperschmidt/FELIS. 
 
 ## Table of Content
+<a href="FELISlogo.png"><img src="FELISlogo.png" align="right" height="180" ></a>
 
 - [Description](#description)
 - [Installing FELIS](#installing-felis)
