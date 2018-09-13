@@ -168,12 +168,23 @@ def match_templates2specs(templates,spectra,speczs,picklename,wavewindow=[50.0],
     loaddic = felis.load_picklefile(picklename)
     return  loaddic
 # = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =
-def selection_from_picklefile(picklefile,S2Nmaxrange=[3,1e4],zspecrange=[0,10],verbose=True):
+def selection_from_picklefile(picklefile,S2Nmaxrange=[3,1e4],zspecrange=[0,10],voffsetrange=[-1e4,1e4],
+                              zspecISzLya=False,verbose=True):
     """
-    Function, returning the list of spectra (keys) from the pickled dictionary satisfying a set of
-    criteria
+    Function, returning the list of spectra (keys) from the FELIS tempalte match pickled dictionary satisfying
+    a set of criteria on SN, redshift, velocity offset, etc.
 
     --- INPUT ---
+    picklefile          The path and name to FELIS output pickelfile to select subset of matches from.
+    S2Nmaxrange         The range of S/N template accepted for template matches returned.
+    zspecrange          The range of redshifts accepted for template matches returned.
+    voffsetrange        The range of velocity offsets in km/s (wrt. to the spectroscopic redshift in dictionary)
+                        accepted for template matches returned.
+    zspecISzLya         If picklefile contains zLya keyword insead of zspec (was generated before 180912), set this
+                        keyword to True to enable proper handling of the dictionary keywords.
+    verbose             Toggle the verbosity.
+
+    --- EXAMPLE OF USE ---
     import felis
 
     picklepath = '/Users/kschmidt/work/MUSE/uvEmissionlineSearch/'
@@ -181,31 +192,35 @@ def selection_from_picklefile(picklefile,S2Nmaxrange=[3,1e4],zspecrange=[0,10],v
 
     goodkeys   = felis.selection_from_picklefile(picklefile,S2Nmaxrange=[3,5])
 
-
-    --- EXAMPLE OF USE ---
-
     """
     if verbose: print(' - Loading the picklefile \n   '+picklefile)
     loaddic  = felis.load_picklefile(picklefile)
     goodkeys = []
     # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+    # Ensure compatibility with FELIS output dictionaries from before 180912
+    zkey = 'zspec'
+    if zspecISzLya: zkey = 'zLya'
+    # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
     if verbose: print(' - Looking for keys in the pickled dictionary satisfying the cuts:')
-    if verbose: print('       z_Lya     :  ['+str(zspecrange[0])+','+str(zspecrange[1])+']')
-    if verbose: print('       max(S/N)  :  ['+str(S2Nmaxrange[0])+','+str(S2Nmaxrange[1])+']')
+    if verbose: print('       '+zkey+'          :  ['+str(zspecrange[0])+','+str(zspecrange[1])+']')
+    if verbose: print('       max(S/N)       :  ['+str(S2Nmaxrange[0])+','+str(S2Nmaxrange[1])+']')
+    if verbose: print('       voffset[km/s]  :  ['+str(voffsetrange[0])+','+str(voffsetrange[1])+']')
     for key in loaddic.keys():
         keydic = loaddic[key]
 
-        if ((keydic['zspec'] > zspecrange[0]) & (keydic['zspec'] < zspecrange[1])):
+        if ((keydic[zkey] > zspecrange[0]) & (keydic[zkey] < zspecrange[1])):
             S2Nmax = np.max(keydic['S2NCCmaxvec'])
             if ((S2Nmax > S2Nmaxrange[0]) & (S2Nmax < S2Nmaxrange[1])):
-                goodkeys.append(key)
+                voffset = keydic['vshift']
+                if ((voffset > voffsetrange[0]) & (voffset < voffsetrange[1])):
+                    goodkeys.append(key)
     if verbose: print(' - Found '+str(len(goodkeys))+' keys in the pickled dictionary satisfying the cuts:')
     # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
     if verbose: print(' - Returning those')
     return goodkeys
 # = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =
 def plot_picklefilecontent(specs2plot,picklefile,plotnames=None,plotdir=None,z_restframe=None,
-                           plottemplates=None,showspecerr=True,verbose=True):
+                           plottemplates=None,showspecerr=True,zspecISzLya=False,verbose=True):
     """
     Function to plot individual results from a picklefile generated with felis.match_templates2specs()
 
@@ -224,6 +239,8 @@ def plot_picklefilecontent(specs2plot,picklefile,plotnames=None,plotdir=None,z_r
                             picload = felis.load_picklefile(picklefile)
                             picload[specname]['templatevec']
     showspecerr         Show the error on the data spectrum? Can make the automatically set y-axis range less ideal.
+    zspecISzLya         If picklefile contains zLya keyword insead of zspec (was generated before 180912), set this
+                        keyword to True to enable proper handling of the dictionary keywords.
     verbose             Toggle the verbosity.
 
     --- EXAMPLE OF USE ---
@@ -241,6 +258,11 @@ def plot_picklefilecontent(specs2plot,picklefile,plotnames=None,plotdir=None,z_r
 
 
     """
+    # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+    # Ensure compatibility with FELIS output dictionaries from before 180912
+    zkey = 'zspec'
+    if zspecISzLya: zkey = 'zLya'
+    # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
     if verbose: print(' - loading the dictionary from the pickled file:\n   '+picklefile)
     loaddic  = felis.load_picklefile(picklefile)
 
@@ -267,7 +289,7 @@ def plot_picklefilecontent(specs2plot,picklefile,plotnames=None,plotdir=None,z_r
 
         # moving spectrum to restframe
         if z_restframe is None:
-            z_spec=spec_dic['zspec']
+            z_spec=spec_dic[zkey]
 
             spec_wave, spec_flux, spec_df, spec_s2n = \
                 spec_wave / (1+z_spec), spec_flux * (1.0+z_spec), spec_df * (1.0+z_spec), spec_s2n
