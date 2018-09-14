@@ -863,3 +863,38 @@ def load_picklefile(picklefile):
     with open(picklefile, 'rb') as f:
         return pickle.load(f)
 # = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =
+def getresult4maxS2N(dictionary,dictionarykey):
+    """
+    Function returning results at maxmimum S/N for the template with maximum S/N overall, for a given
+    dictionary keyword of the pickled FELIS output.
+
+    --- INPUT ---
+    dictionary      = Dictionary containing FELIS outputs, i.e. the output from felis.load_picklefile()
+    dictionarykey   = The object/spectrum (dictionary key) to return results for
+
+    """
+    keys = dictionary.keys()
+    if dictionarykey in keys:
+        keydic        = dictionary[dictionarykey]
+        S2Nmaxvec     = keydic['S2NCCmaxvec']
+        S2Nmax        = np.max(S2Nmaxvec)
+        templateent   = np.where(S2Nmaxvec == S2Nmax)[0]
+        template      = keydic['templatevec'][templateent][0]
+
+        S2Nvec        = keydic['ccresultsarr_S2N'][templateent][0]
+        S2Nvecmax     = np.where(S2Nvec == np.max(S2Nvec))[0]
+
+        flux          = keydic['ccresultsarray_flux'][templateent,S2Nvecmax][0]
+        fluxerr       = np.sqrt(keydic['ccresultsarray_variance'][templateent,S2Nvecmax][0])
+        Ngoodent      = keydic['ccresultsarr_Ngoodent'][templateent,S2Nvecmax][0]
+        chi2          = keydic['ccresultsarr_chi2'][templateent,S2Nvecmax][0]
+    else:
+        template      = 'None'
+        S2Nmax        = -99.0
+        flux          = -99.0
+        fluxerr       = -99.0
+        Ngoodent      = -99.0
+        chi2          = -99.0
+
+    return template, flux, fluxerr, S2Nmax, Ngoodent, chi2
+# = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =
