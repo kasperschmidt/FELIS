@@ -208,12 +208,13 @@ def selection_from_picklefile(picklefile,S2Nmaxrange=[3,1e4],zspecrange=[0,10],v
     for key in loaddic.keys():
         keydic = loaddic[key]
 
-        if ((keydic[zkey] > zspecrange[0]) & (keydic[zkey] < zspecrange[1])):
-            S2Nmax = np.max(keydic['S2NCCmaxvec'])
-            if ((S2Nmax > S2Nmaxrange[0]) & (S2Nmax < S2Nmaxrange[1])):
-                voffset = keydic['vshift']
-                if ((voffset > voffsetrange[0]) & (voffset < voffsetrange[1])):
-                    goodkeys.append(key)
+        template, vshift_V18, vshift, flux, fluxerr, S2Nmax, Ngoodent, chi2 = \
+            felis.getresult4maxS2N(loaddic,key,zspecISzLya=zspecISzLya)
+
+        if ((keydic[zkey] > zspecrange[0]) & (keydic[zkey] < zspecrange[1])) & \
+                ((S2Nmax > S2Nmaxrange[0]) & (S2Nmax < S2Nmaxrange[1])) & \
+                ((vshift > voffsetrange[0]) & (vshift < voffsetrange[1])):
+            goodkeys.append(key)
     if verbose: print(' - Found '+str(len(goodkeys))+' keys in the pickled dictionary satisfying the cuts:')
     # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
     if verbose: print(' - Returning those')
@@ -863,7 +864,7 @@ def load_picklefile(picklefile):
     with open(picklefile, 'rb') as f:
         return pickle.load(f)
 # = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =
-def getresult4maxS2N(dictionary,dictionarykey):
+def getresult4maxS2N(dictionary,dictionarykey,zspecISzLya=False):
     """
     Function returning results at maxmimum S/N for the template with maximum S/N overall, for a given
     dictionary keyword of the pickled FELIS output.
@@ -871,15 +872,33 @@ def getresult4maxS2N(dictionary,dictionarykey):
     --- INPUT ---
     dictionary      = Dictionary containing FELIS outputs, i.e. the output from felis.load_picklefile()
     dictionarykey   = The object/spectrum (dictionary key) to return results for
+    zspecISzLya         If picklefile contains zLya keyword insead of zspec (was generated before 180912), set this
+                        keyword to True to enable proper handling of the dictionary keywords.
 
     """
+    # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+    # Ensure compatibility with FELIS output dictionaries from before 180912
+    zkey = 'zspec'
+    if zspecISzLya: zkey = 'zLya'
+    # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
     keys = dictionary.keys()
     if dictionarykey in keys:
         keydic        = dictionary[dictionarykey]
         S2Nmaxvec     = keydic['S2NCCmaxvec']
         S2Nmax        = np.max(S2Nmaxvec)
         templateent   = np.where(S2Nmaxvec == S2Nmax)[0]
+        if len(templateent) > 1:
+            print('    WARNING felis.getresult4maxS2N(): \n    Multiple templates ('+str(len(templateent))+' of '+
+                  str(len(S2Nmaxvec))+' templates) share the same maximum S/N ('+str(S2Nmax)+
+                  ') of cross-correlation for \n   '+dictionarykey)
+            print('   Will return the results for the first template')
+            templateent = np.array([templateent[0]])
+
         template      = keydic['templatevec'][templateent][0]
+        zS2Nmax       = keydic['zCCmaxvec'][templateent][0]
+        zspec         = keydic[zkey]
+        vshift_match  = 299792.458 * (zspec - zS2Nmax)/(1.0+zS2Nmax) # cf. Erb+2014
+        vshift_intr   = keydic['vshift'] # velocity shift stored in dictionary with felis.match_templates2specs()
 
         S2Nvec        = keydic['ccresultsarr_S2N'][templateent][0]
         S2Nvecmax     = np.where(S2Nvec == np.max(S2Nvec))[0]
@@ -890,11 +909,13 @@ def getresult4maxS2N(dictionary,dictionarykey):
         chi2          = keydic['ccresultsarr_chi2'][templateent,S2Nvecmax][0]
     else:
         template      = 'None'
+        vshift_init   = -99.0
+        vshift_match  = -99.0
         S2Nmax        = -99.0
         flux          = -99.0
         fluxerr       = -99.0
         Ngoodent      = -99.0
         chi2          = -99.0
 
-    return template, flux, fluxerr, S2Nmax, Ngoodent, chi2
+    return template, vshift_intr, vshift_match, flux, fluxerr, S2Nmax, Ngoodent, chi2
 # = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =
