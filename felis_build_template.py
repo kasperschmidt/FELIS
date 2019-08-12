@@ -10,7 +10,7 @@ import numpy as np
 import collections
 
 # = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =
-def build_template(wavelenghts,templatecomponents,noise=None,
+def build_template(wavelengths,templatecomponents,noise=None,
                    tempfile='./felis_template_RENAME_.fits',
                    plottemplate=True,zoomxplot=None,overwrite=False,verbose=True):
     """
@@ -47,7 +47,9 @@ def build_template(wavelenghts,templatecomponents,noise=None,
                                 when listing the template components
     noise                       To add noise to the template provide one of the following:
                                     ['POISSON',mean]       Drawing noise from Poisson distribution around mean
-                                    ['GAUSS',mean,sigma]   Drawing noise from Gaussian distribution with mean and sigma
+                                    ['GAUSS',mean,sigma]   Drawing noise from Gaussian distributed error spectrum
+                                    ['CONSTANT',value,]    Drawing noise from constant error spectrum
+                                    ['SPECTRUM',wave,flux] Error spectrum to draw noise from after interpolation                                                                      to template range
     tempfile                    Name of fits file to store final template to
     plottemplate                Plot the generated template?
     zoomxplot                   Only show plot in zoom region given as [lambda_min,lambda_max]
@@ -81,7 +83,7 @@ def build_template(wavelenghts,templatecomponents,noise=None,
     """
     if verbose: print(' - Setting up template output ')
     headerdic = collections.OrderedDict()
-    wavevec   = np.arange(wavelenghts[0],wavelenghts[1],wavelenghts[2])
+    wavevec   = np.arange(wavelengths[0],wavelengths[1],wavelengths[2])
     fluxvec   = wavevec*0.0
     LSF       = False  # default is no LSF convolution
     N_LSF     = 0      # count number of LSF setups provided - will only handle 1 set of parameters.
@@ -127,26 +129,47 @@ def build_template(wavelenghts,templatecomponents,noise=None,
 
     if noise is not None:
         if noise[0] is 'POISSON':
-            if verbose: print(' - Adding Poisson noise')
-            noisevec = np.random.poisson(noise[1],fluxvec.shape).astype(float)
+            if verbose: print(' - Drawing Poissonian noise')
+            fluxerr  = np.abs(np.random.poisson(noise[1],fluxvec.shape).astype(float))
             headerdic['FNOISE_1'] = [noise[1],'Mean of Poissonian noise']
+        elif noise[0] is 'CONSTANT':
+            if verbose: print(' - Drawing from constant noise level')
+            fluxerr = fluxvec*0.0 + noise[0]
+
+            noisepix  = fluxerr*0.0
+            for nn, noisesigma in enumerate(fluxerr):
+                noisepix[nn] = np.random.normal(0.0, noisesigma, 1)
+
         elif noise[0] is 'GAUSS':
             if verbose: print(' - Adding Gaussian noise')
             headerdic['FNOISE_1'] = [noise[1],'Mean of Gaussian noise']
             headerdic['FNOISE_2'] = [noise[2],'Sigma of Gaussian noise']
-            noisevec = np.random.normal(noise[1], noise[2], fluxvec.shape)
+            fluxerr = np.abs(np.random.normal(noise[1], noise[2], fluxvec.shape))
+            noisepix  = fluxerr*0.0
+            for nn, noisesigma in enumerate(fluxerr):
+                noisepix[nn] = np.random.normal(0.0, noisesigma, 1)
+
+        elif noise[0] is 'SPECTRUM':
+            if verbose: print(' - Adding noise based on interpolation of provided noise spectrum ')
+            noisewave = noise[1]
+            noiseflux = noise[2]
+            noisefunc = scipy.interpolate.interp1d(noisewave,noiseflux,kind='linear',fill_value=0.0)
+            fluxerr   = noisefunc(wavevec)
+
+            noisepix  = fluxerr*0.0
+            for nn, noisesigma in enumerate(fluxerr):
+                noisepix[nn] = np.random.normal(0.0, noisesigma, 1)
+
+            headerdic['FNOISE_1'] = [np.mean(noiseflux),'Average noise of provided noise spectrum ']
         else:
-            sys.exit('Invalid template component "'+noise[0]+'"')
+            sys.exit('Invalid noise component "'+noise[0]+'"')
     else:
         noisevec = fluxvec*0.0
+        noisepix = noisevec
         headerdic['FNOISE_1'] = ['None','No noise added']
-    fluxvec = fluxvec + noisevec
 
-    # if verbose: print(' - Setting flux error as sqrt(flux)')
-    # fluxerr = np.sqrt(np.abs(fluxvec))
-    # headerdic['FERR_1'] = ['sqrt(f)','Uncertainty on flux set to sqrt(|flux|)']
+    fluxvec = fluxvec + noisepix
 
-    fluxerr = np.abs(noisevec)
     headerdic['FERR_1'] = ['noise','Uncertainty on flux = noise from FNOISE keys']
 
     if verbose: print(' - Checking for LSF parameters ')
@@ -171,7 +194,7 @@ def build_template(wavelenghts,templatecomponents,noise=None,
 
             if windowwidth > len(wavevec):
                 sys.exit('LSF sigma +/- '+str(Nsigma)+'sigma restults in a LSF Gaussian '
-                         'convolution kernal larger than considered wavelength range ('+str(windowwidth)+
+                         'convolution kernel larger than considered wavelength range ('+str(windowwidth)+
                          ' > '+str(len(wavevec))+')')
 
             wave_LSF    = wavevec[0:windowwidth]
@@ -190,6 +213,14 @@ def build_template(wavelenghts,templatecomponents,noise=None,
             sys.exit(' Found '+str(N_LSF)+' LSF setups when building FELIS template; only one LSF setup can be provided')
     else:
         if verbose: print('   None found - no convolution with LSF ')
+
+    if verbose:
+        print('   - Spectrum stats:    flux(std,mean,median,max,min)'+
+              str([np.std(fluxvec),np.mean(fluxvec),np.median(fluxvec),np.min(fluxvec),np.max(fluxvec)]))
+        print('                     fluxerr(std,mean,median,max,min)'+
+              str([np.std(fluxerr),np.mean(fluxerr),np.median(fluxerr),np.min(fluxerr),np.max(fluxerr)]))
+        print('                         S2N(std,mean,median,max,min)'+
+              str([np.std(fluxvec/fluxerr),np.mean(fluxvec/fluxerr),np.median(fluxvec/fluxerr),np.min(fluxvec/fluxerr),np.max(fluxvec/fluxerr)]))
 
     felis.save_spectrum(tempfile,wavevec,fluxvec,fluxerr,headerinfo=headerdic,overwrite=overwrite,verbose=verbose)
 
