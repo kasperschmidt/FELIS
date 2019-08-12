@@ -834,7 +834,7 @@ def save_spectrum(outfile,wave,flux,fluxerr,headerinfo=None,overwrite=False,verb
     S2N = flux/fluxerr
 
     # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-    if verbose: print(' - Saving wavelenght and flux values to \n   '+outfile)
+    if verbose: print(' - Saving wavelength and flux values to \n   '+outfile)
     mainHDU = fits.PrimaryHDU()       # primary HDU
     # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
     c1 = fits.Column(name='wave',      format='D', unit='ANGSTROMS', array=wave)
