@@ -12,7 +12,8 @@ import collections
 # = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =
 def build_template(wavelengths,templatecomponents,noise=None,
                    tempfile='./felis_template_RENAME_.fits',
-                   plottemplate=True,zoomxplot=None,overwrite=False,verbose=True):
+                   plottemplate=True,zoomxplot=None,
+                   waveunits='ANGSTROMS',fluxunits='',overwrite=False,verbose=True):
     """
     Build a spectral template based on a dictionatry specifying the tempalte components
     like emmision line and continuum shape.
@@ -53,6 +54,8 @@ def build_template(wavelengths,templatecomponents,noise=None,
     tempfile                    Name of fits file to store final template to
     plottemplate                Plot the generated template?
     zoomxplot                   Only show plot in zoom region given as [lambda_min,lambda_max]
+    waveunits                   Units of wavelength vector to store in fits header
+    fluxunits                   Units of flux to store in fits header
     overwrite                   Overwrite existing template?
 
     --- EXAMPLE OF USE ---
@@ -230,7 +233,8 @@ def build_template(wavelengths,templatecomponents,noise=None,
         print('                                                      Ftot_postnoise      = '+str(Ftot_postnoise))
         print('                                                      Ftot_postnoise_wLSF = '+str(Ftot_postnoise_wLSF))
 
-    felis.save_spectrum(tempfile,wavevec,fluxvec,fluxerr,headerinfo=headerdic,overwrite=overwrite,verbose=verbose)
+    felis.save_spectrum(tempfile,wavevec,fluxvec,fluxerr,headerinfo=headerdic,
+                        waveunits=waveunits,fluxunits=fluxunits,overwrite=overwrite,verbose=verbose)
 
     if plottemplate:
         fbt.plot_template(tempfile,showerr=True,zoomx=zoomxplot,verbose=verbose)
