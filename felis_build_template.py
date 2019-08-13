@@ -135,7 +135,6 @@ def build_template(wavelengths,templatecomponents,noise=None,
         elif noise[0] is 'CONSTANT':
             if verbose: print(' - Drawing from constant noise level')
             fluxerr = fluxvec*0.0 + noise[0]
-
             noisepix  = fluxerr*0.0
             for nn, noisesigma in enumerate(fluxerr):
                 noisepix[nn] = np.random.normal(0.0, noisesigma, 1)
@@ -164,8 +163,8 @@ def build_template(wavelengths,templatecomponents,noise=None,
         else:
             sys.exit('Invalid noise component "'+noise[0]+'"')
     else:
-        noisevec = fluxvec*0.0
-        noisepix = noisevec
+        fluxerr  = fluxvec*0.0
+        noisepix = fluxerr
         headerdic['FNOISE_1'] = ['None','No noise added']
 
     fluxvec = fluxvec + noisepix
