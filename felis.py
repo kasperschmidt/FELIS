@@ -208,12 +208,12 @@ def selection_from_picklefile(picklefile,S2Nmaxrange=[3,1e4],zspecrange=[0,10],v
     for key in loaddic.keys():
         keydic = loaddic[key]
 
-        template, vshift_V18, vshift, flux, fluxerr, S2Nmax, Ngoodent, chi2 = \
+        template, vshift_intr, vshift_match, flux, fluxerr, S2Nmax, Ngoodent, chi2 =  \
             felis.getresult4maxS2N(loaddic,key,zspecISzLya=zspecISzLya)
 
         if ((keydic[zkey] > zspecrange[0]) & (keydic[zkey] < zspecrange[1])) & \
                 ((S2Nmax > S2Nmaxrange[0]) & (S2Nmax < S2Nmaxrange[1])) & \
-                ((vshift > voffsetrange[0]) & (vshift < voffsetrange[1])):
+                ((vshift_match > voffsetrange[0]) & (vshift_match < voffsetrange[1])):
             goodkeys.append(key)
     if verbose: print(' - Found '+str(len(goodkeys))+' keys in the pickled dictionary satisfying the cuts:')
     # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -911,7 +911,7 @@ def getresult4maxS2N(dictionary,dictionarykey,zspecISzLya=False):
         chi2          = keydic['ccresultsarr_chi2'][templateent,S2Nvecmax][0]
     else:
         template      = 'None'
-        vshift_init   = -99.0
+        vshift_intr   = -99.0
         vshift_match  = -99.0
         S2Nmax        = -99.0
         flux          = -99.0
