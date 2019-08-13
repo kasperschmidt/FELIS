@@ -804,7 +804,7 @@ def load_spectrum(specfile,verbose=True):
 
     return wave, flux, fluxerr, s2n
 # = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =
-def save_spectrum(outfile,wave,flux,fluxerr,headerinfo=None,overwrite=False,verbose=True):
+def save_spectrum(outfile,wave,flux,fluxerr,headerinfo=None,waveunits='ANGSTROMS',fluxunits='',overwrite=False,verbose=True):
     """
     Function saving a spectrum (or template) to a fits file
 
@@ -815,6 +815,8 @@ def save_spectrum(outfile,wave,flux,fluxerr,headerinfo=None,overwrite=False,verb
     fluxerr         Error un flux
     headerinfo      To add info to the header provide it to this keyword as a dictionary on the format:
                        headerinfo = {'KEYNAME1':[VALUE1,INFOCOMMENT1], 'KEYNAME2':[VALUE2,INFOCOMMENT2]}
+    waveunits       Units of wave vector to store in fits header
+    fluxunits       Units of flux to store in fits header
     overwrite       Overwrite existing file?
     verbose         Toggle verbosity
 
@@ -837,9 +839,9 @@ def save_spectrum(outfile,wave,flux,fluxerr,headerinfo=None,overwrite=False,verb
     if verbose: print(' - Saving wavelength and flux values to \n   '+outfile)
     mainHDU = fits.PrimaryHDU()       # primary HDU
     # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-    c1 = fits.Column(name='wave',      format='D', unit='ANGSTROMS', array=wave)
-    c2 = fits.Column(name='flux',      format='D', unit='', array=flux)
-    c3 = fits.Column(name='fluxerror', format='D', unit='', array=fluxerr)
+    c1 = fits.Column(name='wave',      format='D', unit=waveunits, array=wave)
+    c2 = fits.Column(name='flux',      format='D', unit=fluxunits, array=flux)
+    c3 = fits.Column(name='fluxerror', format='D', unit=fluxunits, array=fluxerr)
     c4 = fits.Column(name='s2n',       format='D', unit='', array=S2N)
 
     coldefs = fits.ColDefs([c1,c2,c3,c4])
