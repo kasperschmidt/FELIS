@@ -127,6 +127,8 @@ def build_template(wavelengths,templatecomponents,noise=None,
         else:
             sys.exit('Invalid template component "'+templatecomponents[key][0]+'"')
 
+    Ftot_prenoise = np.trapz(fluxvec,wavevec)
+
     if noise is not None:
         if noise[0] is 'POISSON':
             if verbose: print(' - Drawing Poissonian noise')
@@ -170,6 +172,7 @@ def build_template(wavelengths,templatecomponents,noise=None,
     fluxvec = fluxvec + noisepix
 
     headerdic['FERR_1'] = ['noise','Uncertainty on flux = noise from FNOISE keys']
+    Ftot_postnoise = np.trapz(fluxvec,wavevec)
 
     if verbose: print(' - Checking for LSF parameters ')
     if LSF:
@@ -208,9 +211,11 @@ def build_template(wavelengths,templatecomponents,noise=None,
             # plt.clf()
 
             fluxvec   = np.convolve(fluxvec, gauss_LSF, 'same')#
+            Ftot_postnoise_wLSF = np.trapz(fluxvec,wavevec)
         else:
             sys.exit(' Found '+str(N_LSF)+' LSF setups when building FELIS template; only one LSF setup can be provided')
     else:
+        Ftot_postnoise_wLSF = None
         if verbose: print('   None found - no convolution with LSF ')
 
     if verbose:
@@ -219,7 +224,11 @@ def build_template(wavelengths,templatecomponents,noise=None,
         print('                     fluxerr(std,mean,median,max,min)'+
               str([np.std(fluxerr),np.mean(fluxerr),np.median(fluxerr),np.min(fluxerr),np.max(fluxerr)]))
         print('                         S2N(std,mean,median,max,min)'+
-              str([np.std(fluxvec/fluxerr),np.mean(fluxvec/fluxerr),np.median(fluxvec/fluxerr),np.min(fluxvec/fluxerr),np.max(fluxvec/fluxerr)]))
+              str([np.std(fluxvec/fluxerr),np.mean(fluxvec/fluxerr),
+                   np.median(fluxvec/fluxerr),np.min(fluxvec/fluxerr),np.max(fluxvec/fluxerr)]))
+        print('   - Total integrated (np.trapz) flux of spectrum:    Ftot_prenoise       = '+str(Ftot_prenoise))
+        print('                                                      Ftot_postnoise      = '+str(Ftot_postnoise))
+        print('                                                      Ftot_postnoise_wLSF = '+str(Ftot_postnoise_wLSF))
 
     felis.save_spectrum(tempfile,wavevec,fluxvec,fluxerr,headerinfo=headerdic,overwrite=overwrite,verbose=verbose)
 
