@@ -346,6 +346,8 @@ def plot_picklefilecontent(specs2plot,picklefile,plotnames=None,plotdir=None,z_r
                  'g-',lw=lthick+2, markersize=marksize,alpha=1.0,
                  label='Temp. flux$_\\textrm{tot}$ scale $\\alpha$ = '+str("%.4f" % flux_scale_S2Nmax)+'')
 
+        Ftot_trapz = np.trapz(flux_scale_S2Nmax * template_shift_S2Nmax_normalized,spec_wave)
+
         if spec_dic['continuumlevel'] != 0.0:
             plt.plot(spec_wave,spec_flux+spec_dic['continuumlevel']*(1+z_spec),'k-',lw=lthick,
                      markersize=marksize,alpha=0.5, label='Spectrum (w/ cont.)')
@@ -372,7 +374,8 @@ def plot_picklefilecontent(specs2plot,picklefile,plotnames=None,plotdir=None,z_r
         leg.get_frame().set_alpha(0.7)
         # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
         plt.text(0.45, 1.45, 'Template No. '+str(int(besttemplate_ent+1))+'/'+str(len(spec_dic['templatevec']))+
-                 ': '+template.split('/')[-1].replace('_','\_'),
+                 ': '+template.split('/')[-1].replace('_','\_')+
+                 ' (Ftot\_trapz = '+str("%.2f" % Ftot_trapz)+')',
                  fontsize=Fsize/1.3, horizontalalignment='center', transform=ax.transAxes)
 
         # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
