@@ -903,7 +903,11 @@ def getresult4maxS2N(dictionary,dictionarykey,zspecISzLya=False):
         zS2Nmax       = keydic['zCCmaxvec'][templateent][0]
         zspec         = keydic[zkey]
         vshift_match  = 299792.458 * (zspec - zS2Nmax)/(1.0+zS2Nmax) # cf. Erb+2014
-        vshift_intr   = keydic['vshift'] # velocity shift stored in dictionary with felis.match_templates2specs()
+
+        if 'vshift' in keydic.keys():
+            vshift_intr   = keydic['vshift'] # velocity shift stored in dictionary with felis.match_templates2specs()
+        else:
+            vshift_intr   = -99
 
         S2Nvec        = keydic['ccresultsarr_S2N'][templateent][0]
         S2Nvecmax     = np.where(S2Nvec == np.max(S2Nvec))[0]
