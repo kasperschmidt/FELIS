@@ -208,7 +208,7 @@ def selection_from_picklefile(picklefile,S2Nmaxrange=[3,1e4],zspecrange=[0,10],v
     for key in loaddic.keys():
         keydic = loaddic[key]
 
-        template, vshift_intr, vshift_match, flux, fluxerr, S2Nmax, Ngoodent, chi2 =  \
+        template, vshift_intr, vshift_match, flux, fluxerr, S2Nmax, Ngoodent, chi2, zspec, zS2Nmax =  \
             felis.getresult4maxS2N(loaddic,key,zspecISzLya=zspecISzLya)
 
         if ((keydic[zkey] > zspecrange[0]) & (keydic[zkey] < zspecrange[1])) & \
@@ -926,5 +926,5 @@ def getresult4maxS2N(dictionary,dictionarykey,zspecISzLya=False):
         Ngoodent      = -99.0
         chi2          = -99.0
 
-    return template, vshift_intr, vshift_match, flux, fluxerr, S2Nmax, Ngoodent, chi2
+    return template, vshift_intr, vshift_match, flux, fluxerr, S2Nmax, Ngoodent, chi2, zspec, zS2Nmax
 # = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =
