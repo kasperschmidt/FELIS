@@ -168,9 +168,10 @@ def build_template(wavelengths,templatecomponents,noise=None,
         else:
             sys.exit('Invalid noise component "'+noise[0]+'"')
     else:
-        fluxerr  = fluxvec*0.0
-        noisepix = fluxerr
-        headerdic['FNOISE_1'] = ['None','No noise added']
+        minerrval = 1e-9
+        fluxerr  = fluxvec*0.0 + minerrval
+        noisepix = fluxvec*0.0
+        headerdic['FNOISE_1'] = ['None','No noise added; fluxerr set to '+str(minerrval)]
 
     fluxvec = fluxvec + noisepix
 
