@@ -255,7 +255,7 @@ def plot_picklefilecontent(specs2plot,picklefile,plotnames=None,plotdir=None,z_r
     plotdir    = '/Users/kschmidt/work/MUSE/uvEmissionlineSearch/MUSEwideLAE_FELISplots/'
     specs2plot = ['/Volumes/DATABCKUP1/TDOSEextractions/171201_TDOSEextraction/Modelimg/tdose_spectra/tdose_spectrum_candels-cdfs-15_modelimg_0115003085-0115003085.fits']
 
-    felis.plot_picklefilecontent(specs2plot,picklefile,plotname=None,plotdir=plotdir,verbose=True)
+    felis.plot_picklefilecontent(specs2plot,picklefile,plotnames=None,plotdir=plotdir,verbose=True)
 
 
     """
@@ -655,7 +655,7 @@ def cross_correlate_wscipy(spectrum,template,z_restframe=None,ccS2N=False,wavera
         s_wave, s_flux, s_df, s_s2n = s_wave[goodent], s_flux[goodent], s_df[goodent], s_s2n[goodent]
 
     if z_restframe is not None:
-        s_wave, s_flux, s_df, s_s2n = s_wave / (1+z_restframe), s_flux / (1+z_restframe), s_df, s_s2n
+        s_wave, s_flux, s_df, s_s2n = s_wave / (1+z_restframe), s_flux * (1+z_restframe), s_df * (1+z_restframe), s_s2n
     else:
         z_restframe=1.0
 
