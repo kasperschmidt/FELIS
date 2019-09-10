@@ -2,7 +2,7 @@
 import felis
 import felis_build_template as fbt
 import matplotlib.pyplot as plt
-from astropy.io import fits
+import astropy.io.fits as afits
 import pdb
 import sys
 import scipy
@@ -12,7 +12,7 @@ import collections
 # = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =
 def build_template(wavelengths,templatecomponents,noise=None,
                    tempfile='./felis_template_RENAME_.fits',
-                   plottemplate=True,zoomxplot=None,
+                   plottemplate=True,zoomxplot=None,plotyranges=None,
                    waveunits='ANGSTROMS',fluxunits='',overwrite=False,verbose=True):
     """
     Build a spectral template based on a dictionatry specifying the tempalte components
@@ -32,7 +32,7 @@ def build_template(wavelengths,templatecomponents,noise=None,
                                             lkeyword ength of 8 characters (3 are added when saving the info)
                                     Available component types are:
                                     ['GAUSS', mean, sigma, skew, scaling, 'info'] # Gaussian (Skewed) profile
-                                    ['DELTA', position, , total flux, 'info']     # Delta function. Will be added at
+                                    ['DELTA', position, total flux, 'info']       # Delta function. Will be added at
                                                                                   # wavelength nearest postion in the
                                                                                   # generated template
                                     ['LSF', sigma, 'info']                        # Gaussian LSF to convolve template with
@@ -54,6 +54,7 @@ def build_template(wavelengths,templatecomponents,noise=None,
     tempfile                    Name of fits file to store final template to
     plottemplate                Plot the generated template?
     zoomxplot                   Only show plot in zoom region given as [lambda_min,lambda_max]
+    plotyranges                 To fix the yrange of the flux and S/N panel provide two yranges in list
     waveunits                   Units of wavelength vector to store in fits header
     fluxunits                   Units of flux to store in fits header
     overwrite                   Overwrite existing template?
@@ -139,11 +140,10 @@ def build_template(wavelengths,templatecomponents,noise=None,
             headerdic['FNOISE_1'] = [noise[1],'Mean of Poissonian noise']
         elif noise[0] is 'CONSTANT':
             if verbose: print(' - Drawing from constant noise level')
-            fluxerr = fluxvec*0.0 + noise[0]
+            fluxerr = fluxvec*0.0 + noise[1]
             noisepix  = fluxerr*0.0
             for nn, noisesigma in enumerate(fluxerr):
                 noisepix[nn] = np.random.normal(0.0, noisesigma, 1)
-
         elif noise[0] is 'GAUSS':
             if verbose: print(' - Adding Gaussian noise')
             headerdic['FNOISE_1'] = [noise[1],'Mean of Gaussian noise']
@@ -205,16 +205,9 @@ def build_template(wavelengths,templatecomponents,noise=None,
 
             wave_LSF    = wavevec[0:windowwidth]
             param       = np.mean(wave_LSF[int(windowwidth/2.)]), LSFparam[1], 0.0
-            gauss_LSF   = fbt.gauss_skew(wave_LSF,*param) * dwave # normalize Gaussian
-
-            # Check that gaussian is normalized ...
-            # print(' ----> Trapetzoidal integration of LSF guass = '+str(scipy.integrate.trapz(gauss_LSF,wave_LSF)))
-            # print(' ----> sum of LSF guass (PDF sums to 1)      = '+str(scipy.integrate.trapz(gauss_LSF,wave_LSF)))
-            # plt.plot(wave_LSF,gauss_LSF,'bo')
-            # plt.savefig('./LSFgenerated.pdf')
-            # plt.clf()
-
-            fluxvec   = np.convolve(fluxvec, gauss_LSF, 'same')#
+            gauss_LSF   = fbt.gauss_skew(wave_LSF,*param)
+            fluxvec     = np.convolve(fluxvec, gauss_LSF, 'same')
+            fluxvec     = fluxvec * dwave # re-normalize after convolution to conserve flux
             Ftot_postnoise_wLSF = np.trapz(fluxvec,wavevec)
         else:
             sys.exit(' Found '+str(N_LSF)+' LSF setups when building FELIS template; only one LSF setup can be provided')
@@ -238,12 +231,75 @@ def build_template(wavelengths,templatecomponents,noise=None,
                         waveunits=waveunits,fluxunits=fluxunits,overwrite=overwrite,verbose=verbose)
 
     if plottemplate:
-        fbt.plot_template(tempfile,showerr=True,zoomx=zoomxplot,verbose=verbose)
+        fbt.plot_template(tempfile,showerr=True,zoomx=zoomxplot,yranges=plotyranges,verbose=verbose)
+# = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =
+def build_template_check():
+    """
+    Checks of template builds
+
+    --- EXAMPLE OF USE ---
+    import felis_build_template as fbt
+    fbt.build_template_check()
+
+    """
+    wavedef     = [1870,1980,0.1]
+    plotyranges = [[-1,13],[-0.1e10,2e10]]
+    # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+    print('-------- Template with all types of components: Delta function, gaussians, continuum and feature --------')
+    tempfile = './felis_template_example_allcomp.fits'
+    tcdic = {}
+    tcdic['D1900']                  = ['DELTA', 1900.0, 10.0,           'Delta function at 1900A']
+    tcdic['CIII1']                  = ['GAUSS', 1907.0, 0.5, 0.0, 10.0, 'CIII]1907A']
+    tcdic['CIII2']                  = ['GAUSS', 1909.0, 0.5, 0.5, 5.0,  'CIII]1909A']
+    tcdic['CONT']                   = ['CONT', 1.0, -0.03, 1908.0,       'Continuum with flux 1.0 at 1908 + slope -0.03']
+    break_wave                      = np.arange(1800,2000,2.0)
+    break_flux                      = break_wave*0.0
+    break_flux[break_wave > 1920.0] = 5.0
+    tcdic['B1920']                  = ['FEATURE',break_wave, break_flux,'Break at 1920 Angstrom']
+
+    fbt.build_template(wavedef,tcdic,tempfile=tempfile,overwrite=True,plottemplate=True,plotyranges=plotyranges)
+
+    # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+    print('-------- Template with only Gaussians to check integrated template flux --------')
+    tempfile = './felis_template_example_gauss.fits'
+    tcdic = {}
+    tcdic['CIII1']                  = ['GAUSS', 1907.0, 0.5, 0.0, 10.0, 'CIII]1907A']
+    tcdic['CIII2']                  = ['GAUSS', 1909.0, 0.5, 0.5, 5.0,  'CIII]1909A']
+
+    fbt.build_template(wavedef,tcdic,tempfile=tempfile,overwrite=True,plottemplate=True,plotyranges=plotyranges)
+
+    tempdat = afits.open(tempfile)[1].data
+    Ftot_int = np.trapz(tempdat['flux'],tempdat['wave'])
+    print('   Integrated (trapz) total flux     = '+str(Ftot_int))
+    Ftot_sum = np.sum(tempdat['flux']) * np.median(np.diff(tempdat['wave']))
+    print('   Integrated (sum*dlam) total flux  = '+str(Ftot_sum))
+    Fsum     = np.sum(tempdat['flux'])
+    print('   Summed total flux                 = '+str(Fsum))
+
+    # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+    print('-------- Template with Gaussians + LSF to check integrated template flux --------')
+    tempfile = './felis_template_example_gauss_wLSF.fits'
+    tcdic = {}
+    tcdic['CIII1']                  = ['GAUSS', 1907.0, 0.5, 0.0, 10.0, 'CIII]1907A']
+    tcdic['CIII2']                  = ['GAUSS', 1909.0, 0.5, 0.5, 5.0,  'CIII]1909A']
+    tcdic['LSF']                    = ['LSF'  , 2.0   , 'info']
+
+    fbt.build_template(wavedef,tcdic,tempfile=tempfile,overwrite=True,plottemplate=True,plotyranges=plotyranges)
+
+    tempdat = afits.open(tempfile)[1].data
+    Ftot_int = np.trapz(tempdat['flux'],tempdat['wave'])
+    print('   Integrated (trapz) total flux     = '+str(Ftot_int))
+    Ftot_sum = np.sum(tempdat['flux']) * np.median(np.diff(tempdat['wave']))
+    print('   Integrated (sum*dlam) total flux  = '+str(Ftot_sum))
+    Fsum     = np.sum(tempdat['flux'])
+    print('   Summed total flux                 = '+str(Fsum))
+
+    # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 # = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =
 def gauss_skew(x, *p):
     """
-    Return the PDF of a skewed normal distribution where alpha is the skewness paramter
+    Return the (normalized) PDF of a skewed normal distribution where alpha is the skewness paramter
     alpha = 0 represent a non-skewed regular Gaussian with mean mu and standard deviation sigma
 
     --- INPUT ---
@@ -264,12 +320,46 @@ def gauss_skew(x, *p):
     return gaussskew_pdf
 
 # = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =
-def plot_template(templatefits,zoomx=None,showerr=True,verbose=True):
+def gauss_skew_check():
+    """
+
+    Quick check of output from Gaussian skewed profile
+
+    --- EXAMPLE OF USE ---
+    import felis_build_template as fbt
+    fbt.gauss_skew_check()
+
+    """
+    wavecen  = 1903
+    wave     = np.arange(1900,1910,0.05)
+
+    pGS1      = wavecen, 0.5, 0.0
+    GS1       = fbt.gauss_skew(wave,*pGS1)
+    print(' - Sum GS1                      = '+str(np.sum(GS1)))
+    print(' - Integral (trapz) GS1         = '+str(np.trapz(GS1,wave)))
+
+    pGS2      = wavecen+3.0, 0.5, 5.0
+    GS2       = fbt.gauss_skew(wave,*pGS2)
+    print(' - Sum GS2                      = '+str(np.sum(GS2)))
+    print(' - Integral (trapz) GS2         = '+str(np.trapz(GS2,wave)))
+
+    print(' - Sum GS1+GS2                      = '+str(np.sum(GS1+GS2)))
+    print(' - Integral (trapz) GS1+GS2         = '+str(np.trapz(GS1+GS2,wave)))
+
+    plt.plot(wave,GS1)
+    plt.plot(wave,GS2)
+    plt.savefig('./gauss_skew_check.pdf')
+    plt.clf()
+
+# = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =
+def plot_template(templatefits,zoomx=None,yranges=None,showerr=True,verbose=True):
     """
     Plotting template
 
     --- INPUT ---
     templatefits     Fits file containg binary table with template
+    zoomx            Xrange to soom on
+    yranges          To fix the yrange of the flux and S/N panel provide two yranges in list
     showerr          Show the errorbars on the flux values
     verbose          Toggle verbosity
 
@@ -278,8 +368,8 @@ def plot_template(templatefits,zoomx=None,showerr=True,verbose=True):
     fbt.plot_template(templatefits,showerr=True,verbose=True)
 
     """
-    specdata = fits.open(templatefits)[1].data
-    datahdr  = fits.open(templatefits)[1].header
+    specdata = afits.open(templatefits)[1].data
+    datahdr  = afits.open(templatefits)[1].header
     plotname = templatefits.replace('.fits','_plot.pdf')
     if verbose: print(' - Setting up and generating plot')
     fig = plt.figure(figsize=(7, 5))
@@ -330,6 +420,8 @@ def plot_template(templatefits,zoomx=None,showerr=True,verbose=True):
     except:
         plt.ylabel(' Flux [?]')
 
+    if yranges is not None:
+        plt.ylim(yranges[0])
     # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
     plt.subplot(2,1,2)
     plt.plot(xvalues,yvalues2,'go',lw=lthick, markersize=marksize,alpha=1.0,)
@@ -338,6 +430,9 @@ def plot_template(templatefits,zoomx=None,showerr=True,verbose=True):
     except:
         plt.xlabel(' Wavelength [?]')
     plt.ylabel(' S/N ')
+
+    if yranges is not None:
+        plt.ylim(yranges[1])
     # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
     if verbose: print('   Saving plot to '+plotname)
     plt.savefig(plotname)
