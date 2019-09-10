@@ -437,13 +437,14 @@ def minimize_chi2(data,data_sigma,template,temp_wave=None,verbose=True):
 
     """
     normlim = 1e-10
-    if temp_wave:
+    if temp_wave is not None:
         normval  = np.trapz(template,temp_wave)
     else:
         normval  = np.trapz(template)
     sumdiff = np.abs(normval-1.0)
     if sumdiff > normlim: #checking if provided template is normalized
-        print('FELIS WARNING: Template is not normalized: |np.trapz(template,dwave)-1.0| = '+str(sumdiff)+' > '+str(normlim))
+        raise ValueError('FELIS WARNING: Template is not normalized: |np.trapz(template,dwave)-1.0| = '+
+                         str(sumdiff)+' > '+str(normlim))
 
     if len(data) == len(template):
         Npix = len(data)
@@ -451,7 +452,6 @@ def minimize_chi2(data,data_sigma,template,temp_wave=None,verbose=True):
         sys.exit('The length of the data and template should be the same; it is not.')
     if verbose: print(' - Will calculate and minimize chi**2 for data and template of length '+str(Npix))
     goodent  = np.where((data_sigma > 0) & (np.isfinite(data)) & (template != 0))[0]
-    #goodent  = np.where((data_sigma > 0) & (data > 0) & (template != 0))[0]
     Ngoodent = len(goodent)
 
     if Ngoodent == 0:
@@ -467,9 +467,6 @@ def minimize_chi2(data,data_sigma,template,temp_wave=None,verbose=True):
 
         S2N            = alpha / np.sqrt(alpha_variance)
         chi2_min       = np.sum( ( data[goodent]-alpha*template[goodent] )**2 / data_sigma[goodent]**2 )
-
-        # if S2N > 80.: pdb.set_trace()
-        # plt.plot(data[goodent]), plt.plot(alpha*template[goodent]), plt.plot(data_sigma[goodent])
 
     return alpha, alpha_variance, S2N, chi2_min, Ngoodent
 # = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =
@@ -555,7 +552,7 @@ def cross_correlate_template(spectrum,template,z_restframe=None,waverange=None,
         normlim   = 1e-10
         temp_int  = np.trapz(template_shift,s_wave)
         sumdiff   = np.abs(temp_int-1.0)
-        if sumdiff < normlim: # make sure "half-template" shifts are also normalized
+        if sumdiff > normlim: # make sure "half-template" shifts are also normalized
             if temp_int == 0: # only attempt normalization if template is not just zeros
                 pass
             else:
@@ -563,7 +560,7 @@ def cross_correlate_template(spectrum,template,z_restframe=None,waverange=None,
 
         try:
             flux_scale, flux_scale_variance, S2N, chi2_min, NgoodentChi2 = \
-                felis.minimize_chi2(s_flux,s_df,template_shift,verbose=False)
+                felis.minimize_chi2(s_flux,s_df,template_shift,temp_wave=s_wave,verbose=False)
 
             ccresults[ii,:] = flux_scale, flux_scale_variance, S2N, chi2_min, NgoodentChi2
         except:
