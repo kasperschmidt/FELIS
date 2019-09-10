@@ -319,7 +319,7 @@ def plot_picklefilecontent(specs2plot,picklefile,plotnames=None,plotdir=None,z_r
         template_triplelength            = np.zeros(3*Npix)
         template_triplelength[0:Npix]    = t_flux
         template_shift_S2Nmax            = np.roll(template_triplelength, int(max_S2N_ent+np.floor(Npix/2.)))[Npix:-Npix]
-        template_shift_S2Nmax_normalized = template_shift_S2Nmax/np.sum(template_shift_S2Nmax)
+        template_shift_S2Nmax_normalized = template_shift_S2Nmax/np.trapz(template_shift_S2Nmax,spec_wave)
 
         flux_scale_S2Nmax     = spec_dic['ccresultsarray_flux'][besttemplate_ent,max_S2N_ent]
         max_wave              = spec_dic['wavelengths'][max_S2N_ent]
@@ -413,7 +413,7 @@ def plot_picklefilecontent(specs2plot,picklefile,plotnames=None,plotdir=None,z_r
         plt.close('all')
 
 # = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =
-def minimize_chi2(data,data_sigma,template,verbose=True):
+def minimize_chi2(data,data_sigma,template,temp_wave=None,verbose=True):
     """
     Minimizing chi2 for a 1D template matching and returning the corresponding (flux) scaling, alpha.
 
@@ -432,13 +432,18 @@ def minimize_chi2(data,data_sigma,template,verbose=True):
     data            Data to match template to
     data_sigma      Uncertainty on data, i.e., sqrt(variance)
     template        Normalized template to search for in data. Should be of the same lenght as data
+    temp_wave       Provide template wavelengths for normalization check if dlam is not 1.
     verbose         Toggle verbosity
 
     """
     normlim = 1e-10
-    sumdiff = np.abs((np.sum(template)-1.0))
+    if temp_wave:
+        normval  = np.trapz(template,temp_wave)
+    else:
+        normval  = np.trapz(template)
+    sumdiff = np.abs(normval-1.0)
     if sumdiff > normlim: #checking if provided template is normalized
-        print('FELIS WARNING: Template is not normalized: |sum(template)-1.0| = '+str(sumdiff)+' > '+str(normlim))
+        print('FELIS WARNING: Template is not normalized: |np.trapz(template,dwave)-1.0| = '+str(sumdiff)+' > '+str(normlim))
 
     if len(data) == len(template):
         Npix = len(data)
@@ -533,9 +538,8 @@ def cross_correlate_template(spectrum,template,z_restframe=None,waverange=None,
     if len(t_flux[t_flux != 0]) == 0:
         if verbose: print(' WARNING All interpolated template pixels are 0.0')
     else:
-        temp_sum = np.sum(t_flux)
-        # temp_int = np.trapz(t_flux,s_wave)
-        t_flux   = t_flux / temp_sum
+        temp_int = np.trapz(t_flux,s_wave)
+        t_flux   = t_flux / temp_int
 
     Npix = len(s_flux)
 
@@ -544,27 +548,18 @@ def cross_correlate_template(spectrum,template,z_restframe=None,waverange=None,
 
     ccresults = np.zeros([Npix,5])
 
-    # printinfo = True
     for ii in np.arange(Npix):
         rollsize       = int(ii+np.floor(Npix/2.))
         template_shift = np.roll(template_triplelength, rollsize)[Npix:-Npix]
 
-        normlim = 1e-10
-        sumdiff = np.abs((np.sum(template_shift)-1.0))
-        if sumdiff > normlim: #making sure "half-template" shifts are also normalized
-            temp_sum = np.sum(template_shift)
-            if temp_sum == 0: # only attempt normalization if template is not just zeros
+        normlim   = 1e-10
+        temp_int  = np.trapz(template_shift,s_wave)
+        sumdiff   = np.abs(temp_int-1.0)
+        if sumdiff < normlim: # make sure "half-template" shifts are also normalized
+            if temp_int == 0: # only attempt normalization if template is not just zeros
                 pass
             else:
-                # temp_int = np.trapz(template_shift,s_wave)
-                template_shift     = template_shift / temp_sum
-
-        # if ii == Npix-1:
-        #     plt.clf()
-        #     plt.plot(template_triplelength,'r--')
-        #     plt.plot(template_shift     ,'b-')
-        #     plt.savefig('/Users/kschmidt/Desktop/'+spectrum.split('/')[-1].replace('.fits','template.png'))
-        #     pdb.set_trace()
+                template_shift   = template_shift / temp_int
 
         try:
             flux_scale, flux_scale_variance, S2N, chi2_min, NgoodentChi2 = \
@@ -576,27 +571,6 @@ def cross_correlate_template(spectrum,template,z_restframe=None,waverange=None,
                   'Stopping for further investigation')
 
             pdb.set_trace()
-
-        # if (S2N > 80.) & (printinfo == True):
-        #     goodent  = np.where((s_flux > 0) & (np.isfinite(s_flux)) & (template_shift != 0))[0]
-        #     print(s_flux[goodent])
-        #     print(s_df[goodent])
-        #     print(s_wave[goodent])
-        #     print(s_flux[goodent]/s_df[goodent])
-        #     printinfo = False
-        #     #pdb.set_trace()
-
-        # show_illustrative_plot = False
-        # if show_illustrative_plot:
-        #     xx = np.zeros(24)
-        #     xx[:3] = 1
-        #     plt.plot(xx,'o',markersize=8,color='k')
-        #     plt.plot(np.roll(xx,8)+0.1,'o',markersize=6,color='r')
-        #     plt.plot(np.roll(xx,16)+0.2,'o',markersize=4,color='b')
-        #     plt.plot(np.roll(xx,8)[8:-8]+0.3,'o',markersize=2,color='b')
-        #     plt.plot([7.5,7.5],[0,1.3],'-',color='k')
-        #     plt.plot([15.5,15.5],[0,1.3],'-',color='k')
-        #     plt.show()
 
     max_S2N     = np.max(ccresults[:,2])
     max_S2N_ent = np.where(ccresults[:,2] == max_S2N)[0][0]
