@@ -438,13 +438,17 @@ def minimize_chi2(data,data_sigma,template,temp_wave=None,verbose=True):
     """
     normlim = 1e-10
     if temp_wave is not None:
-        normval  = np.trapz(template,temp_wave)
+        temp_int = np.trapz(template,temp_wave)
     else:
-        normval  = np.trapz(template)
-    sumdiff = np.abs(normval-1.0)
-    if sumdiff > normlim: #checking if provided template is normalized
-        raise ValueError('FELIS WARNING: Template is not normalized: |np.trapz(template,dwave)-1.0| = '+
-                         str(sumdiff)+' > '+str(normlim))
+        temp_int = np.trapz(template)
+
+    if temp_int == 0: # all pixels are 0
+        pass
+    else:
+        sumdiff = np.abs(temp_int-1.0)
+        if sumdiff > normlim: #checking if provided template is normalized
+            raise ValueError('FELIS WARNING: Template is not normalized: |np.trapz(template,dwave)-1.0| = '+
+                             str(sumdiff)+' > '+str(normlim))
 
     if len(data) == len(template):
         Npix = len(data)
