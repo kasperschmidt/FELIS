@@ -112,7 +112,7 @@ def match_templates2specs(templates,spectra,speczs,picklename,wavewindow=[50.0],
 
             wave, ccresults, max_S2N, max_z, continuumlevel = \
                 felis.cross_correlate_template(spec,temp,z_restframe=speczs[ss],spec_median_sub=subtract_spec_median,
-                                               waverange=waverange,min_template_level=min_template_level)
+                                               waverange=waverange,min_template_level=min_template_level,verbose=verbose)
 
             if tt == 0:
                 ccresultsarr_flux      = np.array(ccresults[:,0])
@@ -162,7 +162,7 @@ def match_templates2specs(templates,spectra,speczs,picklename,wavewindow=[50.0],
                 plotname      = plotdir+spec_namebase+'_CCwith_'+temp_namebase+'.pdf'
 
                 felis.plot_picklefilecontent([spec],picklename,plottemplates=[tt],showspecerr=False,
-                                             plotnames=[plotname],plotdir=plotdir,verbose=True)
+                                             plotnames=[plotname],plotdir=plotdir,verbose=verbose)
 
     if verbose: print(' - Returning dictioniary with results ')
     loaddic = felis.load_picklefile(picklename)
@@ -506,7 +506,7 @@ def cross_correlate_template(spectrum,template,z_restframe=None,waverange=None,
 
     """
     if verbose: print(' - Loading spectrum and template to cross-correlate ')
-    s_wave, s_flux, s_df, s_s2n = felis.load_spectrum(spectrum)
+    s_wave, s_flux, s_df, s_s2n = felis.load_spectrum(spectrum,verbose=verbose)
 
 
     if waverange is not None:
@@ -530,7 +530,7 @@ def cross_correlate_template(spectrum,template,z_restframe=None,waverange=None,
     s_flux       = s_flux - continuumval * (1.0+z_restframe)
 
     if verbose: print(' - Interpolate template to spectrums wavelength resolution before cross-correlating')
-    t_wave_init, t_flux_init, t_df_init, t_s2n_init = felis.load_spectrum(template)
+    t_wave_init, t_flux_init, t_df_init, t_s2n_init = felis.load_spectrum(template,verbose=verbose)
     func       = scipy.interpolate.interp1d(t_wave_init,t_flux_init,kind='linear',fill_value="extrapolate")
     t_flux     = func(s_wave)
     t_flux[t_flux < min_template_level] = 0.0
