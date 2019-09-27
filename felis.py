@@ -7,11 +7,12 @@ import matplotlib.pyplot as plt
 import datetime
 import pickle
 import sys
+import os
 import numpy as np
 # = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =
 def match_templates2specs(templates,spectra,speczs,picklename,wavewindow=[50.0],wavecen_restframe=[1908.0],
                           vshift=None,min_template_level=1e-4,plotdir=None,plot_allCCresults=False,
-                          subtract_spec_median=True,verbose=True):
+                          subtract_spec_median=True,overwrite=False,verbose=True):
     """
     Wrapper around felis cross-correlation template matching, to match a list of spectra with a list of templtes.
 
@@ -30,6 +31,7 @@ def match_templates2specs(templates,spectra,speczs,picklename,wavewindow=[50.0],
                           provide a level below which all values in the interpolated template are treated as 0s.
     plotdir               Directory to store plots to
     plot_allCCresults     To plot all the cross-correlation plots, set this to True
+    overwrite             Overwrite existing pickle file if it already exists?
     verbose               Toggle verbosity
 
     --- EXAMPLE OF USE ---
@@ -151,22 +153,26 @@ def match_templates2specs(templates,spectra,speczs,picklename,wavewindow=[50.0],
     if verbose: print('   '+datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")+'  (started at '+startstring+')')
 
     if verbose: print(' - Saving dictionary to '+picklename)
-    felis.save_dictionary(ccresultdic,picklename)
+    if os.path.isfile(picklename) & (overwrite == False):
+        print('\n   FELIS WARNING: The output file '+picklename+'exists but overwrite==False so returning "None" ')
+        return None
+    else:
+        felis.save_dictionary(ccresultdic,picklename)
 
-    if verbose: print(' - Will plot all cross-correlation results in saved dictionary as plot_allCCresults=True')
-    if plot_allCCresults:
-        for ss, spec in enumerate(spectra):
-            spec_namebase = spec.split('/')[-1].split('.fit')[0]
-            for tt, temp in enumerate(templates):
-                temp_namebase = temp.split('/')[-1].split('.fit')[0]
-                plotname      = plotdir+spec_namebase+'_CCwith_'+temp_namebase+'.pdf'
+        if verbose: print(' - Will plot all cross-correlation results in saved dictionary as plot_allCCresults=True')
+        if plot_allCCresults:
+            for ss, spec in enumerate(spectra):
+                spec_namebase = spec.split('/')[-1].split('.fit')[0]
+                for tt, temp in enumerate(templates):
+                    temp_namebase = temp.split('/')[-1].split('.fit')[0]
+                    plotname      = plotdir+spec_namebase+'_CCwith_'+temp_namebase+'.pdf'
 
-                felis.plot_picklefilecontent([spec],picklename,plottemplates=[tt],showspecerr=False,
-                                             plotnames=[plotname],plotdir=plotdir,verbose=verbose)
+                    felis.plot_picklefilecontent([spec],picklename,plottemplates=[tt],showspecerr=False,
+                                                 plotnames=[plotname],plotdir=plotdir,verbose=verbose)
 
-    if verbose: print(' - Returning dictioniary with results ')
-    loaddic = felis.load_picklefile(picklename)
-    return  loaddic
+        if verbose: print(' - Returning dictioniary with results ')
+        loaddic = felis.load_picklefile(picklename)
+        return  loaddic
 # = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =
 def selection_from_picklefile(picklefile,S2Nmaxrange=[3,1e4],zspecrange=[0,10],voffsetrange=[-1e4,1e4],
                               zspecISzLya=False,verbose=True):
@@ -537,7 +543,7 @@ def cross_correlate_template(spectrum,template,z_restframe=None,waverange=None,
 
     if verbose: print(' - Normalizing total template flux to 1')
     if len(t_flux[t_flux != 0]) == 0:
-        if verbose: print(' WARNING All interpolated template pixels are 0.0')
+        if verbose: print('   FELIS WARNING All interpolated template pixels are 0.0')
     else:
         temp_int = np.trapz(t_flux,s_wave)
         t_flux   = t_flux / temp_int
@@ -693,7 +699,7 @@ def getresult4maxS2N(dictionary,dictionarykey,zspecISzLya=False):
         S2Nmax        = np.max(S2Nmaxvec)
         templateent   = np.where(S2Nmaxvec == S2Nmax)[0]
         if len(templateent) > 1:
-            print('    WARNING felis.getresult4maxS2N(): \n    Multiple templates ('+str(len(templateent))+' of '+
+            print('    FELIS WARNING felis.getresult4maxS2N(): \n    Multiple templates ('+str(len(templateent))+' of '+
                   str(len(S2Nmaxvec))+' templates) share the same maximum S/N ('+str(S2Nmax)+
                   ') of cross-correlation for \n   '+dictionarykey)
             print('   Will return the results for the first template')
