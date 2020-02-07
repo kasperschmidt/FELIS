@@ -362,6 +362,12 @@ def plot_picklefilecontent(specs2plot,picklefile,plotnames=None,plotdir=None,z_r
             speclabel = 'Spectrum (w/ cont.)'
         plt.plot(spec_wave,spec_flux,'k-',lw=lthick, markersize=marksize,alpha=1.0,label=speclabel)
 
+        #what about...
+        #  plt.step(specdat['wave'],specdat['flux'],'r',where='mid')
+        #  plt.fill_between(specdat['wave'],specdat['flux']-specdat['fluxerror'],specdat['flux']+specdat['fluxerror'],step='mid',color='red',alpha=0.5)
+
+
+
         if showspecerr:
             plt.fill_between(spec_wave, spec_flux-spec_df, spec_flux+spec_df,color='black',alpha=0.2,label='Spectrum err')
 
@@ -673,7 +679,7 @@ def save_dictionary(dictionary, output='./saveddictionary_RENAME_.pkl'):
 # = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =
 def load_picklefile(picklefile):
     with open(picklefile, 'rb') as f:
-        return pickle.load(f)
+        return pickle.load(f, encoding='latin1')
 # = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =
 def getresult4maxS2N(dictionary,dictionarykey,zspecISzLya=False):
     """
