@@ -678,8 +678,14 @@ def save_dictionary(dictionary, output='./saveddictionary_RENAME_.pkl'):
         pickle.dump(dictionary, f, pickle.HIGHEST_PROTOCOL)
 # = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =
 def load_picklefile(picklefile):
+    pversion = sys.version_info[0]
     with open(picklefile, 'rb') as f:
-        return pickle.load(f, encoding='latin1')
+        if pversion == 2:
+            return pickle.load(f) # for python 2.X
+        elif pversion == 3:
+            return pickle.load(f, encoding='latin1') # for python 3.X
+        else:
+            sys.exit('   felis.load_picklefile() saw unknown version of python: version = '+str(pversion))
 # = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =
 def getresult4maxS2N(dictionary,dictionarykey,zspecISzLya=False):
     """
